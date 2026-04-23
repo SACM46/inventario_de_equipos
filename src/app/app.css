@@ -1,0 +1,314 @@
+:host {
+  display: block;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f4f6fb;
+  min-height: 100vh;
+  color: #1c2430;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+
+.encabezado h1 {
+  margin: 0 0 6px;
+  color: #15385b;
+}
+
+.encabezado p {
+  margin: 0;
+}
+
+.tarjeta {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 18px;
+  box-shadow: 0 4px 12px rgba(15, 30, 60, 0.08);
+}
+
+.tarjeta h2 {
+  margin-top: 0;
+}
+
+.barra-superior {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-activa {
+  background: #15385b;
+}
+
+.usuario {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-cerrar {
+  background: #637487;
+}
+
+.btn-cerrar:hover {
+  background: #4f5e70;
+}
+
+.login {
+  max-width: 560px;
+}
+
+.formulario-login {
+  display: grid;
+  gap: 12px;
+}
+
+.nota-login {
+  margin: 10px 0 0;
+  color: #4b5a70;
+}
+
+.formulario {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+input,
+select,
+button {
+  border: 1px solid #c8d1df;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 14px;
+}
+
+button {
+  background: #1f6feb;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button:hover {
+  background: #1959bb;
+}
+
+.filtros {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+}
+
+.filtro-grupo {
+  min-width: 220px;
+}
+
+.filtros-derecha {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.acciones-exportar {
+  display: flex;
+  gap: 8px;
+}
+
+.input-archivo {
+  display: none;
+}
+
+.btn-importar {
+  background: #4b5f7a;
+  color: #fff;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 12px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.btn-importar:hover {
+  background: #3f5066;
+}
+
+.btn-exportar-excel {
+  background: #177245;
+}
+
+.btn-exportar-excel:hover {
+  background: #125d39;
+}
+
+.btn-exportar-pdf {
+  background: #9a2e2e;
+}
+
+.btn-exportar-pdf:hover {
+  background: #7c2323;
+}
+
+.total {
+  margin: 12px 0;
+  font-weight: 700;
+}
+
+.formulario-alerta {
+  display: grid;
+  grid-template-columns: 1.2fr 2fr auto;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.mensaje-importacion {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #ddf8e7;
+  color: #0b7a37;
+  font-weight: 600;
+}
+
+.mensaje-importacion.warning {
+  background: #fff2d5;
+  color: #8a5a00;
+}
+
+.tabla-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 880px;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e5ebf3;
+  text-align: left;
+  padding: 10px;
+}
+
+th {
+  background: #edf2fa;
+  color: #1a2f4a;
+}
+
+.estado {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.activo {
+  background: #ddf8e7;
+  color: #0b7a37;
+}
+
+.en-reparacion {
+  background: #fff2d5;
+  color: #8a5a00;
+}
+
+.baja {
+  background: #fde2e2;
+  color: #9b1c1c;
+}
+
+.acciones-fila {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.btn-copiar {
+  background: #2563eb;
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.btn-copiar:hover {
+  background: #1d4ed8;
+}
+
+.btn-eliminar {
+  background: #d83838;
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.btn-eliminar:hover {
+  background: #b52a2a;
+}
+
+.sin-datos {
+  text-align: center;
+  color: #586274;
+  font-style: italic;
+}
+
+@media (max-width: 700px) {
+  .layout {
+    padding: 14px;
+  }
+
+  .filtros {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filtro-grupo {
+    width: 100%;
+  }
+
+  .filtros-derecha,
+  .acciones-exportar {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .barra-superior,
+  .usuario,
+  .tabs {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .formulario-alerta {
+    grid-template-columns: 1fr;
+  }
+}

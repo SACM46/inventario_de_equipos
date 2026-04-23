@@ -1,0 +1,295 @@
+<main class="layout">
+  <section class="encabezado">
+    <h1>Inventario de Equipos</h1>
+    <p>Control de impresoras, escaneres y computadores (todo en uno, laptop y de mesa).</p>
+  </section>
+
+  @if (!sesionActiva) {
+    <section class="tarjeta login">
+      <h2>Acceso al sistema</h2>
+      <form class="formulario-login" (ngSubmit)="iniciarSesion()">
+        <label>
+          Usuario
+          <input type="text" name="usuario" [(ngModel)]="credenciales.usuario" />
+        </label>
+        <label>
+          Contrasena
+          <input type="password" name="contrasena" [(ngModel)]="credenciales.contrasena" />
+        </label>
+        <button type="submit">Ingresar</button>
+      </form>
+      <p class="nota-login">
+        Admin: <strong>admin / admin123</strong>, <strong>soporte / soporte123</strong><br />
+        Usuario general: <strong>usuario1 / usuario123</strong><br />
+        Cuenta de equipo: usuario = <strong>Serial</strong> del equipo (columna Serial), contrasena =
+        <strong>Equipo2026</strong> (universal).
+      </p>
+      @if (mensajeAlerta) {
+        <p class="mensaje-importacion" [class.warning]="tipoMensajeAlerta === 'warning'">
+          {{ mensajeAlerta }}
+        </p>
+      }
+    </section>
+  } @else {
+    <section class="tarjeta barra-superior">
+      <div class="tabs">
+        @if (esAdmin) {
+          <button type="button" [class.tab-activa]="vistaActual === 'inventario'" (click)="vistaActual = 'inventario'">
+            Inventario
+          </button>
+        }
+        <button type="button" [class.tab-activa]="vistaActual === 'alertas'" (click)="vistaActual = 'alertas'">
+          {{ esAdmin ? 'Alertas' : 'Reportar / Mis alertas' }} ({{ alertasAbiertasVisibles.length }})
+        </button>
+      </div>
+      <div class="usuario">
+        <span>Usuario: {{ usuarioActual }} ({{ esAdmin ? 'Admin' : 'Usuario' }})</span>
+        <button type="button" class="btn-cerrar" (click)="cerrarSesion()">Cerrar sesion</button>
+      </div>
+    </section>
+  }
+
+  @if (sesionActiva && esAdmin && vistaActual === 'inventario') {
+  <section class="tarjeta">
+    <h2>Registrar equipo</h2>
+    <form class="formulario" (ngSubmit)="agregarEquipo()">
+      <label>
+        Tipo
+        <select name="tipo" [(ngModel)]="nuevoRegistro.tipo">
+          @for (tipo of tiposEquipo; track tipo) {
+            <option [value]="tipo">{{ tipo }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        Marca
+        <input type="text" name="marca" [(ngModel)]="nuevoRegistro.marca" />
+      </label>
+
+      <label>
+        Modelo
+        <input type="text" name="modelo" [(ngModel)]="nuevoRegistro.modelo" />
+      </label>
+
+      <label>
+        Serial
+        <input type="text" name="serial" [(ngModel)]="nuevoRegistro.serial" />
+      </label>
+
+      <label>
+        Ubicacion
+        <input type="text" name="ubicacion" [(ngModel)]="nuevoRegistro.ubicacion" />
+      </label>
+
+      <label>
+        Estado
+        <select name="estado" [(ngModel)]="nuevoRegistro.estado">
+          <option value="Activo">Activo</option>
+          <option value="En reparacion">En reparacion</option>
+          <option value="Baja">Baja</option>
+        </select>
+      </label>
+
+      <button type="submit">Agregar al inventario</button>
+    </form>
+  </section>
+  }
+
+  @if (sesionActiva && esAdmin && vistaActual === 'inventario') {
+  <section class="tarjeta">
+    <div class="filtros">
+      <h2>Listado de equipos</h2>
+      <div class="filtros-derecha">
+        <div class="acciones-exportar">
+          <label class="btn-importar" for="archivoExcel">Importar Excel</label>
+          <input
+            id="archivoExcel"
+            class="input-archivo"
+            type="file"
+            accept=".xlsx,.xls"
+            (change)="importarExcel($event)"
+          />
+          <button type="button" class="btn-exportar-excel" (click)="exportarExcel()">
+            Exportar a Excel
+          </button>
+          <button type="button" class="btn-exportar-pdf" (click)="exportarPdf()">
+            Exportar a PDF
+          </button>
+        </div>
+        <div class="filtro-grupo">
+        <label for="filtroTipo">Filtrar por tipo</label>
+        <select id="filtroTipo" name="filtroTipo" [(ngModel)]="filtroTipo">
+          <option value="Todos">Todos</option>
+          @for (tipo of tiposEquipo; track tipo) {
+            <option [value]="tipo">{{ tipo }}</option>
+          }
+        </select>
+        </div>
+      </div>
+    </div>
+
+    <p class="total">Total registrados: {{ totalEquipos }}</p>
+    @if (mensajeImportacion) {
+      <p class="mensaje-importacion" [class.warning]="tipoMensajeImportacion === 'warning'">
+        {{ mensajeImportacion }}
+      </p>
+    }
+    @if (mensajePortapapeles) {
+      <p class="mensaje-importacion" [class.warning]="tipoMensajePortapapeles === 'warning'">
+        {{ mensajePortapapeles }}
+      </p>
+    }
+    <h3>Reportar problema de equipo</h3>
+    <form class="formulario-alerta" (ngSubmit)="reportarAlerta()">
+      <label>
+        Equipo
+        <select name="equipoAlerta" [(ngModel)]="nuevaAlerta.equipoId">
+          <option [ngValue]="0">Seleccionar...</option>
+          @for (equipo of inventario; track equipo.id) {
+            <option [ngValue]="equipo.id">
+              {{ equipo.tipo }} - {{ equipo.marca }} {{ equipo.modelo }} ({{ equipo.serial }})
+            </option>
+          }
+        </select>
+      </label>
+      <label>
+        Descripcion de la falla
+        <input type="text" name="descripcionAlerta" [(ngModel)]="nuevaAlerta.descripcion" />
+      </label>
+      <button type="submit">Registrar alerta</button>
+    </form>
+    @if (mensajeAlerta) {
+      <p class="mensaje-importacion" [class.warning]="tipoMensajeAlerta === 'warning'">
+        {{ mensajeAlerta }}
+      </p>
+    }
+
+    <div class="tabla-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Marca</th>
+            <th>Modelo</th>
+            <th>Serial</th>
+            <th>Ubicacion</th>
+            <th>Usuario equipo</th>
+            <th>Contrasena equipo</th>
+            <th>Estado</th>
+            <th>Accion</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (equipo of equiposFiltrados; track equipo.id) {
+            <tr>
+              <td>{{ equipo.tipo }}</td>
+              <td>{{ equipo.marca }}</td>
+              <td>{{ equipo.modelo }}</td>
+              <td>{{ equipo.serial }}</td>
+              <td>{{ equipo.ubicacion }}</td>
+              <td><code>{{ equipo.equipoUsuario }}</code></td>
+              <td><code>{{ equipo.equipoContrasena }}</code></td>
+              <td>
+                <span class="estado" [class]="equipo.estado.toLowerCase().replace(' ', '-')">
+                  {{ equipo.estado }}
+                </span>
+              </td>
+              <td>
+                <div class="acciones-fila">
+                  <button
+                    class="btn-copiar"
+                    type="button"
+                    (click)="copiarCredencialesEquipo(equipo)"
+                    title="Copiar usuario y contrasena"
+                  >
+                    Copiar credenciales
+                  </button>
+                  <button class="btn-eliminar" type="button" (click)="eliminarEquipo(equipo.id)">
+                    Eliminar
+                  </button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="9" class="sin-datos">No hay equipos para mostrar con ese filtro.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  }
+
+  @if (sesionActiva && vistaActual === 'alertas') {
+    <section class="tarjeta">
+      <h2>{{ esAdmin ? 'Equipos con problemas (Alertas)' : 'Registrar problema de equipo' }}</h2>
+      @if (mensajeAlerta) {
+        <p class="mensaje-importacion" [class.warning]="tipoMensajeAlerta === 'warning'">
+          {{ mensajeAlerta }}
+        </p>
+      }
+      @if (!esAdmin) {
+        <form class="formulario-alerta" (ngSubmit)="reportarAlerta()">
+          <label>
+            Equipo
+            <select name="equipoAlertaUsuario" [(ngModel)]="nuevaAlerta.equipoId">
+              @if (equipoIdEnSesion === null) {
+                <option [ngValue]="0">Seleccionar...</option>
+              }
+              @for (equipo of equiposParaReportarAlerta; track equipo.id) {
+                <option [ngValue]="equipo.id">
+                  {{ equipo.tipo }} - {{ equipo.marca }} {{ equipo.modelo }} ({{ equipo.serial }})
+                </option>
+              }
+            </select>
+          </label>
+          <label>
+            Descripcion de la falla
+            <input type="text" name="descripcionAlertaUsuario" [(ngModel)]="nuevaAlerta.descripcion" />
+          </label>
+          <button type="submit">Registrar alerta</button>
+        </form>
+      }
+      <div class="tabla-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Equipo</th>
+              <th>Ubicacion</th>
+              <th>Descripcion</th>
+              <th>Reportado por</th>
+              <th>Fecha</th>
+              @if (esAdmin) {
+                <th>Accion</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (alerta of alertasConEquipo; track alerta.id) {
+              <tr>
+                <td>
+                  {{ alerta.equipo?.tipo }} - {{ alerta.equipo?.marca }} {{ alerta.equipo?.modelo }}
+                </td>
+                <td>{{ alerta.equipo?.ubicacion || 'N/A' }}</td>
+                <td>{{ alerta.descripcion }}</td>
+                <td>{{ alerta.reportadoPor }}</td>
+                <td>{{ alerta.fecha }}</td>
+                @if (esAdmin) {
+                  <td>
+                    <button type="button" (click)="resolverAlerta(alerta.id)">Resolver</button>
+                  </td>
+                }
+              </tr>
+            } @empty {
+              <tr>
+                <td [attr.colspan]="esAdmin ? 6 : 5" class="sin-datos">No hay alertas abiertas.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+</main>
