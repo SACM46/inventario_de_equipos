@@ -51,12 +51,41 @@ export class App implements OnInit {
     'En reparacion',
     'Baja'
   ];
+  private readonly tipoAlias: Record<string, TipoEquipo> = {
+    impresora: 'Impresora',
+    escaner: 'Escaner',
+    scanner: 'Escaner',
+    'pc todo en uno': 'PC Todo en Uno',
+    allinone: 'PC Todo en Uno',
+    laptop: 'Laptop',
+    portatil: 'Laptop',
+    notebook: 'Laptop',
+    'pc de mesa': 'PC de Mesa',
+    escritorio: 'PC de Mesa',
+    'pc escritorio': 'PC de Mesa',
+    servidor: 'PC de Mesa'
+  };
+  private readonly estadoAlias: Record<string, 'Activo' | 'En reparacion' | 'Baja'> = {
+    activo: 'Activo',
+    inactivo: 'Baja',
+    baja: 'Baja',
+    'en reparacion': 'En reparacion',
+    reparacion: 'En reparacion',
+    'en mantenimiento': 'En reparacion',
+    mantenimiento: 'En reparacion'
+  };
 
   tiposEquipo: TipoEquipo[] = ['Impresora', 'Escaner', 'PC Todo en Uno', 'Laptop', 'PC de Mesa'];
   filtroTipo: 'Todos' | TipoEquipo = 'Todos';
   vistaActual: 'inventario' | 'alertas' = 'inventario';
   mensajeImportacion = '';
   tipoMensajeImportacion: 'ok' | 'warning' | '' = '';
+  importacionEnProgreso = false;
+  importacionTotal = 0;
+  importacionProcesados = 0;
+  importacionExitosos = 0;
+  importacionFallidos = 0;
+  detallesImportacionFallida: string[] = [];
   mensajePortapapeles = '';
   tipoMensajePortapapeles: 'ok' | 'warning' | '' = '';
   private portapapelesTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -129,6 +158,13 @@ export class App implements OnInit {
       ...alerta,
       equipo: this.inventario.find((equipo) => equipo.id === alerta.equipoId)
     }));
+  }
+
+  get progresoImportacionPorcentaje(): number {
+    if (!this.importacionTotal) {
+      return 0;
+    }
+    return Math.round((this.importacionProcesados / this.importacionTotal) * 100);
   }
 
   get esAdmin(): boolean {
@@ -232,17 +268,14 @@ export class App implements OnInit {
       registroLimpio.serial,
       new Set(this.inventario.map((equipo) => equipo.serial))
     );
-    const nuevoEquipo: DatosEquipoBase = {
+    const guardado = await this.crearEquipoEnApi({
       ...registroLimpio,
       serial: serialUnico
-    };
-
-    const guardado = await this.crearEquipoEnApi(nuevoEquipo);
+    });
     if (!guardado) {
       this.mostrarMensajeAlerta('No se pudo guardar el equipo en la base de datos.', 'warning');
       return;
     }
-
     this.inventario.unshift(guardado);
 
     this.nuevoRegistro = {
@@ -413,6 +446,9 @@ export class App implements OnInit {
     if (!this.esAdmin) {
       return;
     }
+    if (this.importacionEnProgreso) {
+      return;
+    }
     this.limpiarMensajeImportacion();
     const input = event.target as HTMLInputElement;
     const archivo = input.files?.[0];
@@ -434,75 +470,80 @@ export class App implements OnInit {
 
     const hoja = workbook.Sheets[nombreHoja];
     const filas = xlsx.utils.sheet_to_json<Record<string, unknown>>(hoja, { defval: '' });
-    const totalFilas = filas.length;
+    this.importacionEnProgreso = true;
+    this.importacionTotal = filas.length;
+    this.importacionProcesados = 0;
+    this.importacionExitosos = 0;
+    this.importacionFallidos = 0;
+    this.detallesImportacionFallida = [];
 
-    const nuevos: RegistroInventario[] = [];
-    const registrosMapeados = filas
-      .map((fila) => this.mapearFilaARegistro(fila))
-      .filter((registro): registro is DatosEquipoBase => registro !== null);
+    const serialesOcupados = new Set(this.inventario.map((equipo) => equipo.serial));
+    const nuevosGuardados: RegistroInventario[] = [];
 
-    for (const registro of registrosMapeados) {
-      const serialesOcupados = new Set([
-        ...this.inventario.map((equipo) => equipo.serial),
-        ...nuevos.map((equipo) => equipo.serial)
-      ]);
+    for (let i = 0; i < filas.length; i += 1) {
+      const filaNumero = i + 2;
+      const registro = this.mapearFilaARegistro(filas[i]);
+      if (!registro) {
+        this.importacionFallidos += 1;
+        this.detallesImportacionFallida.push(
+          `Fila ${filaNumero}: formato invalido (revisa Tipo, Marca, Modelo, Serial, Ubicacion y Estado).`
+        );
+        this.importacionProcesados += 1;
+        continue;
+      }
+
       const serialUnico = this.generarSerialUnico(registro.serial, serialesOcupados);
-      const credenciales = this.generarCredencialesEquipo(serialUnico);
-      nuevos.push({
-        id: Date.now() + Math.floor(Math.random() * 1000000),
-        ...registro,
-        serial: serialUnico,
-        ...credenciales
-      });
+      serialesOcupados.add(serialUnico);
+      const guardado = await this.crearEquipoEnApi({ ...registro, serial: serialUnico });
+
+      if (guardado) {
+        this.importacionExitosos += 1;
+        nuevosGuardados.push(guardado);
+      } else {
+        this.importacionFallidos += 1;
+        this.detallesImportacionFallida.push(
+          `Fila ${filaNumero}: no se pudo guardar en base de datos (serial ${serialUnico}).`
+        );
+      }
+
+      this.importacionProcesados += 1;
     }
 
-    if (nuevos.length > 0) {
-      const equiposGuardados = await Promise.all(
-        nuevos.map((equipo) =>
-          this.crearEquipoEnApi({
-            tipo: equipo.tipo,
-            marca: equipo.marca,
-            modelo: equipo.modelo,
-            serial: equipo.serial,
-            ubicacion: equipo.ubicacion,
-            estado: equipo.estado
-          })
-        )
-      );
-      this.inventario = [...equiposGuardados.filter((equipo): equipo is RegistroInventario => equipo !== null), ...this.inventario];
+    if (nuevosGuardados.length > 0) {
+      this.inventario = [...nuevosGuardados, ...this.inventario];
     }
 
-    const omitidos = totalFilas - nuevos.length;
-    if (nuevos.length === 0) {
+    if (this.importacionExitosos === 0) {
       this.mostrarMensajeImportacion(
         'No se importaron equipos. Verifica columnas (Tipo, Marca, Modelo, Serial, Ubicacion, Estado) y valores permitidos.',
         'warning'
       );
     } else {
       this.mostrarMensajeImportacion(
-        `Importacion completada: ${nuevos.length} cargados y ${omitidos} omitidos.`,
-        omitidos > 0 ? 'warning' : 'ok'
+        `Importacion completada: ${this.importacionExitosos} cargados y ${this.importacionFallidos} omitidos.`,
+        this.importacionFallidos > 0 ? 'warning' : 'ok'
       );
     }
 
+    this.importacionEnProgreso = false;
     input.value = '';
   }
 
   private mapearFilaARegistro(fila: Record<string, unknown>): DatosEquipoBase | null {
-    const tipo = String(fila['Tipo'] ?? '').trim() as TipoEquipo;
+    const tipo = this.normalizarTipo(String(fila['Tipo'] ?? '').trim());
     const marca = String(fila['Marca'] ?? '').trim();
     const modelo = String(fila['Modelo'] ?? '').trim();
     const serial = String(fila['Serial'] ?? '').trim();
     const ubicacion = String(fila['Ubicacion'] ?? '').trim();
-    const estado = String(fila['Estado'] ?? '').trim() as 'Activo' | 'En reparacion' | 'Baja';
+    const estado = this.normalizarEstado(String(fila['Estado'] ?? '').trim());
 
     if (
-      !this.tiposValidos.includes(tipo) ||
+      !tipo ||
       !marca ||
       !modelo ||
       !serial ||
       !ubicacion ||
-      !this.estadosValidos.includes(estado)
+      !estado
     ) {
       return null;
     }
@@ -515,6 +556,34 @@ export class App implements OnInit {
       ubicacion,
       estado
     };
+  }
+
+  private normalizarTipo(valor: string): TipoEquipo | null {
+    const clave = this.normalizarTexto(valor);
+    if (this.tipoAlias[clave]) {
+      return this.tipoAlias[clave];
+    }
+    const tipoExacto = this.tiposValidos.find((tipo) => this.normalizarTexto(tipo) === clave);
+    return tipoExacto ?? null;
+  }
+
+  private normalizarEstado(valor: string): 'Activo' | 'En reparacion' | 'Baja' | null {
+    const clave = this.normalizarTexto(valor);
+    if (this.estadoAlias[clave]) {
+      return this.estadoAlias[clave];
+    }
+    const estadoExacto = this.estadosValidos.find((estado) => this.normalizarTexto(estado) === clave);
+    return estadoExacto ?? null;
+  }
+
+  private normalizarTexto(valor: string): string {
+    return valor
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private generarCredencialesEquipo(

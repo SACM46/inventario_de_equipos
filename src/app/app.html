@@ -102,7 +102,9 @@
       <h2>Listado de equipos</h2>
       <div class="filtros-derecha">
         <div class="acciones-exportar">
-          <label class="btn-importar" for="archivoExcel">Importar Excel</label>
+          <label class="btn-importar" for="archivoExcel" [class.disabled]="importacionEnProgreso">
+            {{ importacionEnProgreso ? 'Importando...' : 'Importar Excel' }}
+          </label>
           <input
             id="archivoExcel"
             class="input-archivo"
@@ -134,6 +136,28 @@
       <p class="mensaje-importacion" [class.warning]="tipoMensajeImportacion === 'warning'">
         {{ mensajeImportacion }}
       </p>
+    }
+    @if (importacionTotal > 0) {
+      <section class="progreso-importacion">
+        <div class="progreso-encabezado">
+          <strong>{{ importacionEnProgreso ? 'Importando equipos...' : 'Resultado de importacion' }}</strong>
+          <span>{{ progresoImportacionPorcentaje }}%</span>
+        </div>
+        <div class="barra-progreso">
+          <div class="barra-progreso__avance" [style.width.%]="progresoImportacionPorcentaje"></div>
+        </div>
+        <p class="progreso-resumen">
+          Procesados: {{ importacionProcesados }}/{{ importacionTotal }} | Cargados: {{ importacionExitosos }} |
+          Omitidos: {{ importacionFallidos }}
+        </p>
+        @if (detallesImportacionFallida.length > 0) {
+          <ul class="detalle-fallidos">
+            @for (detalle of detallesImportacionFallida; track detalle) {
+              <li>{{ detalle }}</li>
+            }
+          </ul>
+        }
+      </section>
     }
     @if (mensajePortapapeles) {
       <p class="mensaje-importacion" [class.warning]="tipoMensajePortapapeles === 'warning'">
