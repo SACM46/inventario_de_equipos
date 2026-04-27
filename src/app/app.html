@@ -102,6 +102,9 @@
       <h2>Listado de equipos</h2>
       <div class="filtros-derecha">
         <div class="acciones-exportar">
+          <button type="button" class="btn-plantilla-excel" (click)="descargarPlantillaExcel()">
+            Descargar plantilla Excel
+          </button>
           <label class="btn-importar" for="archivoExcel" [class.disabled]="importacionEnProgreso">
             {{ importacionEnProgreso ? 'Importando...' : 'Importar Excel' }}
           </label>

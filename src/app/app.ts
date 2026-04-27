@@ -402,6 +402,29 @@ export class App implements OnInit {
     xlsx.writeFile(libro, `inventario-equipos-${this.fechaArchivo()}.xlsx`);
   }
 
+  async descargarPlantillaExcel(): Promise<void> {
+    if (!this.esAdmin) {
+      return;
+    }
+    const xlsx = await import('xlsx');
+    const plantilla = [
+      {
+        Tipo: '',
+        Marca: '',
+        Modelo: '',
+        Serial: '',
+        Ubicacion: '',
+        Estado: '',
+        UsuarioEquipo: '',
+        ContrasenaEquipo: ''
+      }
+    ];
+    const hoja = xlsx.utils.json_to_sheet(plantilla);
+    const libro = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(libro, hoja, 'Plantilla');
+    xlsx.writeFile(libro, 'plantilla-inventario-equipos.xlsx');
+  }
+
   async exportarPdf(): Promise<void> {
     if (!this.esAdmin) {
       return;

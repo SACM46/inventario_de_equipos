@@ -173,6 +173,14 @@ button:hover {
   background: #125d39;
 }
 
+.btn-plantilla-excel {
+  background: #0b7285;
+}
+
+.btn-plantilla-excel:hover {
+  background: #095c6b;
+}
+
 .btn-exportar-pdf {
   background: #9a2e2e;
 }

@@ -1,59 +1,147 @@
-# InventarioApp
+# Inventario de Equipos (Guia para principiantes)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.3.
+Este sistema te permite:
 
-## Development server
+- Registrar equipos (impresoras, escaneres, laptops, etc.).
+- Importar equipos desde un archivo Excel.
+- Exportar el inventario a Excel y PDF.
+- Descargar una **plantilla Excel** con el formato correcto para importar.
 
-To start a local development server, run:
+---
+
+## 1) Requisitos
+
+Antes de empezar, instala:
+
+- [Node.js](https://nodejs.org/) (recomendado version LTS).
+- [XAMPP](https://www.apachefriends.org/) o cualquier servidor con **Apache + PHP + MySQL**.
+
+Verifica que `npm` este disponible:
+
+```bash
+npm -v
+```
+
+---
+
+## 2) Instalar dependencias del proyecto
+
+En la carpeta del proyecto, ejecuta:
+
+```bash
+npm install
+```
+
+Esto descarga las librerias necesarias para Angular.
+
+---
+
+## 3) Configurar base de datos (MySQL)
+
+1. Abre **phpMyAdmin**.
+2. Importa el archivo `api/schema.sql`.
+3. Eso crea la base de datos `inventario_equipos` y la tabla `equipos`.
+
+> Importante: la conexion a BD esta en `api/db.php`.
+> Si tu MySQL usa otro usuario/contrasena, cambialo ahi.
+
+---
+
+## 4) Levantar backend (PHP)
+
+Debes tener la carpeta del proyecto dentro de tu servidor web local.
+
+En este proyecto, la API se consume desde:
+
+`http://localhost/inventario-app/api`
+
+Si tu ruta es distinta, actualiza `apiBaseUrl` en `src/app/app.ts`.
+
+---
+
+## 5) Levantar frontend (Angular)
+
+Ejecuta:
+
+```bash
+npm start
+```
+
+o
 
 ```bash
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Luego abre:
 
-## Code scaffolding
+`http://localhost:4200/`
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+---
 
-```bash
-ng generate component component-name
-```
+## 6) Usuarios de acceso
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+En la pantalla de login puedes usar:
 
-```bash
-ng generate --help
-```
+- Admin: `admin / admin123`
+- Admin: `soporte / soporte123`
+- Usuario: `usuario1 / usuario123`
 
-## Building
+---
 
-To build the project run:
+## 7) Como usar Excel (muy importante)
 
-```bash
-ng build
-```
+### Descargar plantilla
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+En la vista de inventario (admin), haz clic en:
 
-## Running unit tests
+**Descargar plantilla Excel**
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+Se descargara el archivo:
 
-```bash
-ng test
-```
+`plantilla-inventario-equipos.xlsx`
 
-## Running end-to-end tests
+### Columnas esperadas para importar
 
-For end-to-end (e2e) testing, run:
+Debes respetar estos encabezados:
 
-```bash
-ng e2e
-```
+- `Tipo`
+- `Marca`
+- `Modelo`
+- `Serial`
+- `Ubicacion`
+- `Estado`
+- `UsuarioEquipo` (opcional)
+- `ContrasenaEquipo` (opcional)
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+### Valores recomendados
 
-## Additional Resources
+- `Tipo`: Impresora, Escaner, PC Todo en Uno, Laptop, PC de Mesa.
+- `Estado`: Activo, En reparacion, Baja.
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Si algun dato clave viene vacio o incorrecto, esa fila se omitira al importar.
+
+---
+
+## 8) Exportaciones
+
+En inventario (admin) puedes:
+
+- Exportar a Excel.
+- Exportar a PDF.
+
+---
+
+## 9) Comandos utiles
+
+- Iniciar proyecto: `npm start`
+- Compilar: `npm run build`
+- Pruebas: `npm test`
+
+---
+
+## 10) Problemas comunes
+
+- **No conecta a MySQL**: revisa usuario, contrasena, nombre de BD en `api/db.php`.
+- **No carga API**: revisa que Apache este iniciado y que la ruta `http://localhost/inventario-app/api` exista.
+- **Falla importacion Excel**: verifica nombres de columnas y que no falten campos obligatorios.
