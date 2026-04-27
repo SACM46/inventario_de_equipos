@@ -33,17 +33,19 @@
   } @else {
     <section class="tarjeta barra-superior">
       <div class="tabs">
-        @if (esAdmin) {
+        @if (puedeVerInventario) {
           <button type="button" [class.tab-activa]="vistaActual === 'inventario'" (click)="vistaActual = 'inventario'">
+            <i class="bi bi-box-seam" aria-hidden="true"></i>
             Inventario
           </button>
         }
         <button type="button" [class.tab-activa]="vistaActual === 'alertas'" (click)="vistaActual = 'alertas'">
-          {{ esAdmin ? 'Alertas' : 'Reportar / Mis alertas' }} ({{ alertasAbiertasVisibles.length }})
+          <i class="bi bi-bell" aria-hidden="true"></i>
+          {{ puedeGestionarAlertas ? 'Alertas' : 'Reportar / Mis alertas' }} ({{ alertasAbiertasVisibles.length }})
         </button>
       </div>
       <div class="usuario">
-        <span>Usuario: {{ usuarioActual }} ({{ esAdmin ? 'Admin' : 'Usuario' }})</span>
+        <span>Usuario: {{ usuarioActual }} ({{ etiquetaRolActual }})</span>
         <button type="button" class="btn-cerrar" (click)="cerrarSesion()">Cerrar sesion</button>
       </div>
     </section>
@@ -116,7 +118,7 @@
         Rol
         <select name="nuevoRol" [(ngModel)]="nuevoUsuario.rol">
           <option value="usuario">Usuario</option>
-          <option value="admin">Admin</option>
+          <option value="soporte">Soporte</option>
         </select>
       </label>
       <button type="submit">Crear usuario</button>
@@ -144,9 +146,26 @@
               <td>{{ usuario.rol }}</td>
               <td>
                 @if (usuario.editable) {
-                  <button type="button" class="btn-eliminar" (click)="eliminarUsuario(usuario.usuario)">
-                    Eliminar
-                  </button>
+                  <div class="acciones-fila">
+                    <button
+                      type="button"
+                      class="btn-icon btn-editar"
+                      (click)="abrirModalEditarUsuario(usuario.usuario)"
+                      title="Modificar usuario"
+                      aria-label="Modificar usuario"
+                    >
+                      <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-icon btn-eliminar"
+                      (click)="eliminarUsuario(usuario.usuario)"
+                      title="Eliminar usuario"
+                      aria-label="Eliminar usuario"
+                    >
+                      <i class="bi bi-trash3" aria-hidden="true"></i>
+                    </button>
+                  </div>
                 } @else {
                   <span>Base</span>
                 }
@@ -159,7 +178,7 @@
   </section>
   }
 
-  @if (sesionActiva && esAdmin && vistaActual === 'inventario') {
+  @if (sesionActiva && puedeVerInventario && vistaActual === 'inventario') {
   <section class="tarjeta">
     <div class="filtros">
       <h2>Listado de equipos</h2>
@@ -183,10 +202,7 @@
             class="btn-exportar-excel"
             (click)="abrirModalExportacion()"
           >
-            Exportar a Excel
-          </button>
-          <button type="button" class="btn-exportar-pdf" (click)="exportarPdf()">
-            Exportar a PDF
+            Exportar a Excel o PDF
           </button>
         </div>
         <div class="filtro-grupo">
@@ -266,17 +282,37 @@
               </td>
               <td>
                 <div class="acciones-fila">
+                  @if (esAdmin) {
+                    <button
+                      class="btn-icon btn-editar"
+                      type="button"
+                      (click)="abrirModalEditarEquipo(equipo)"
+                      title="Editar equipo"
+                      aria-label="Editar equipo"
+                    >
+                      <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    </button>
+                  }
                   <button
-                    class="btn-copiar"
+                    class="btn-icon btn-copiar"
                     type="button"
                     (click)="copiarCredencialesEquipo(equipo)"
-                    title="Copiar usuario y contrasena"
+                    title="Copiar credenciales del equipo"
+                    aria-label="Copiar credenciales del equipo"
                   >
-                    Copiar credenciales
+                    <i class="bi bi-clipboard" aria-hidden="true"></i>
                   </button>
-                  <button class="btn-eliminar" type="button" (click)="eliminarEquipo(equipo.id)">
-                    Eliminar
-                  </button>
+                  @if (esAdmin) {
+                    <button
+                      class="btn-icon btn-eliminar"
+                      type="button"
+                      (click)="eliminarEquipo(equipo.id)"
+                      title="Eliminar equipo"
+                      aria-label="Eliminar equipo"
+                    >
+                      <i class="bi bi-trash3" aria-hidden="true"></i>
+                    </button>
+                  }
                 </div>
               </td>
             </tr>
@@ -293,7 +329,7 @@
 
   @if (sesionActiva && vistaActual === 'alertas') {
     <section class="tarjeta">
-      <h2>{{ esAdmin ? 'Gestion de alertas' : 'Registrar problema de equipo' }}</h2>
+      <h2>{{ puedeGestionarAlertas ? 'Gestion de alertas' : 'Registrar problema de equipo' }}</h2>
       @if (mensajeAlerta) {
         <p class="mensaje-importacion" [class.warning]="tipoMensajeAlerta === 'warning'">
           {{ mensajeAlerta }}
@@ -328,7 +364,7 @@
               <th>Descripcion</th>
               <th>Reportado por</th>
               <th>Fecha</th>
-              @if (esAdmin) {
+              @if (puedeGestionarAlertas) {
                 <th>Accion</th>
               }
             </tr>
@@ -343,15 +379,23 @@
                 <td>{{ alerta.descripcion }}</td>
                 <td>{{ alerta.reportadoPor }}</td>
                 <td>{{ alerta.fecha }}</td>
-                @if (esAdmin) {
+                @if (puedeGestionarAlertas) {
                   <td>
-                    <button type="button" (click)="resolverAlerta(alerta.id)">Resolver</button>
+                    <button
+                      type="button"
+                      class="btn-icon btn-resolver"
+                      (click)="abrirModalResolverAlerta(alerta.id)"
+                      title="Marcar alerta como resuelta"
+                      aria-label="Marcar alerta como resuelta"
+                    >
+                      <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                    </button>
                   </td>
                 }
               </tr>
             } @empty {
               <tr>
-                <td [attr.colspan]="esAdmin ? 6 : 5" class="sin-datos">No hay alertas abiertas.</td>
+                <td [attr.colspan]="puedeGestionarAlertas ? 6 : 5" class="sin-datos">No hay alertas abiertas.</td>
               </tr>
             }
           </tbody>
@@ -405,7 +449,159 @@
           <button type="button" class="btn-exportar-excel" (click)="exportarExcel()">
             Descargar Excel filtrado
           </button>
+          <button type="button" class="btn-exportar-pdf" (click)="exportarPdfFiltrado()">
+            Descargar PDF filtrado
+          </button>
         </footer>
+      </section>
+    </div>
+  }
+
+  @if (sesionActiva && esAdmin && vistaActual === 'inventario' && mostrarModalEdicionUsuario) {
+    <div class="modal-exportacion-backdrop" (click)="cerrarModalEditarUsuario()">
+      <section class="modal-exportacion" (click)="$event.stopPropagation()">
+        <header class="modal-exportacion__encabezado">
+          <h3>Modificar usuario</h3>
+          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalEditarUsuario()">X</button>
+        </header>
+
+        <form class="modal-exportacion__controles" (ngSubmit)="guardarEdicionUsuario()">
+          <label>
+            Nombre
+            <input
+              type="text"
+              name="editarNombreUsuario"
+              [(ngModel)]="usuarioEdicion.nombre"
+            />
+          </label>
+          <label>
+            Usuario
+            <input
+              type="text"
+              name="editarUsuarioUsuario"
+              [(ngModel)]="usuarioEdicion.usuario"
+            />
+          </label>
+          <label>
+            Contrasena
+            <input
+              type="password"
+              name="editarContrasenaUsuario"
+              [(ngModel)]="usuarioEdicion.contrasena"
+            />
+          </label>
+          <label>
+            Rol
+            <select name="editarRolUsuario" [(ngModel)]="usuarioEdicion.rol">
+              <option value="usuario">Usuario</option>
+              <option value="soporte">Soporte</option>
+            </select>
+          </label>
+
+          <footer class="modal-exportacion__acciones">
+            <button type="button" class="btn-limpiar-filtros" (click)="cerrarModalEditarUsuario()">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-exportar-excel">
+              Guardar cambios
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  }
+
+  @if (sesionActiva && esAdmin && vistaActual === 'inventario' && mostrarModalEdicionEquipo) {
+    <div class="modal-exportacion-backdrop" (click)="cerrarModalEditarEquipo()">
+      <section class="modal-exportacion" (click)="$event.stopPropagation()">
+        <header class="modal-exportacion__encabezado">
+          <h3>Editar equipo</h3>
+          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalEditarEquipo()">X</button>
+        </header>
+
+        <form class="modal-exportacion__controles" (ngSubmit)="guardarEdicionEquipo()">
+          <label>
+            Tipo
+            <select name="editarEquipoTipo" [(ngModel)]="equipoEdicion.tipo">
+              @for (tipo of tiposEquipo; track tipo) {
+                <option [value]="tipo">{{ tipo }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            Marca
+            <input type="text" name="editarEquipoMarca" [(ngModel)]="equipoEdicion.marca" />
+          </label>
+          <label>
+            Modelo
+            <input type="text" name="editarEquipoModelo" [(ngModel)]="equipoEdicion.modelo" />
+          </label>
+          <label>
+            Serial
+            <input type="text" name="editarEquipoSerial" [(ngModel)]="equipoEdicion.serial" />
+          </label>
+          <label>
+            Ubicacion
+            <input type="text" name="editarEquipoUbicacion" [(ngModel)]="equipoEdicion.ubicacion" />
+          </label>
+          <label>
+            Estado
+            <select name="editarEquipoEstado" [(ngModel)]="equipoEdicion.estado">
+              <option value="Activo">Activo</option>
+              <option value="En reparacion">En reparacion</option>
+              <option value="Baja">Baja</option>
+            </select>
+          </label>
+
+          <footer class="modal-exportacion__acciones">
+            <button type="button" class="btn-limpiar-filtros" (click)="cerrarModalEditarEquipo()">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-exportar-excel">
+              Guardar cambios
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  }
+
+  @if (sesionActiva && puedeGestionarAlertas && vistaActual === 'alertas' && mostrarModalResolverAlerta) {
+    <div class="modal-exportacion-backdrop" (click)="cerrarModalResolverAlerta()">
+      <section class="modal-exportacion" (click)="$event.stopPropagation()">
+        <header class="modal-exportacion__encabezado">
+          <h3>Resolver alerta</h3>
+          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalResolverAlerta()">X</button>
+        </header>
+
+        <form class="modal-exportacion__controles" (ngSubmit)="resolverAlerta()">
+          <label>
+            Motivo de la falla / solucion aplicada
+            <input
+              type="text"
+              name="motivoResolucionAlerta"
+              [(ngModel)]="resolucionAlerta.motivo"
+              placeholder="Describe que se encontro y que se hizo"
+            />
+          </label>
+          <label>
+            Se arreglo la falla?
+            <select name="solucionadoAlerta" [(ngModel)]="resolucionAlerta.solucionado">
+              <option value="">Seleccionar...</option>
+              <option value="si">Si</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+
+          <footer class="modal-exportacion__acciones">
+            <button type="button" class="btn-limpiar-filtros" (click)="cerrarModalResolverAlerta()">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-exportar-excel">
+              Confirmar resolucion
+            </button>
+          </footer>
+        </form>
       </section>
     </div>
   }

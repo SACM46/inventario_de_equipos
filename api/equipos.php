@@ -118,5 +118,79 @@ if ($method === 'DELETE') {
     exit;
 }
 
+if ($method === 'PUT') {
+    $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+    if ($id <= 0) {
+        http_response_code(422);
+        echo json_encode(['error' => 'ID invalido.']);
+        exit;
+    }
+
+    $payload = json_decode((string) file_get_contents('php://input'), true);
+    if (!is_array($payload)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'JSON invalido.']);
+        exit;
+    }
+
+    $tipo = trim((string) ($payload['tipo'] ?? ''));
+    $marca = trim((string) ($payload['marca'] ?? ''));
+    $modelo = trim((string) ($payload['modelo'] ?? ''));
+    $serial = trim((string) ($payload['serial'] ?? ''));
+    $ubicacion = trim((string) ($payload['ubicacion'] ?? ''));
+    $estado = trim((string) ($payload['estado'] ?? ''));
+
+    if ($tipo === '' || $marca === '' || $modelo === '' || $serial === '' || $ubicacion === '' || $estado === '') {
+        http_response_code(422);
+        echo json_encode(['error' => 'Faltan campos obligatorios.']);
+        exit;
+    }
+
+    $equipoUsuario = $serial;
+    $equipoContrasena = 'Equipo2026';
+
+    $stmt = $conn->prepare(
+        "UPDATE equipos
+         SET tipo = ?, marca = ?, modelo = ?, serial = ?, ubicacion = ?, estado = ?, equipoUsuario = ?, equipoContrasena = ?
+         WHERE id = ?"
+    );
+    if (!$stmt) {
+        http_response_code(500);
+        echo json_encode(['error' => 'No se pudo preparar el UPDATE.']);
+        exit;
+    }
+
+    $stmt->bind_param(
+        'ssssssssi',
+        $tipo,
+        $marca,
+        $modelo,
+        $serial,
+        $ubicacion,
+        $estado,
+        $equipoUsuario,
+        $equipoContrasena,
+        $id
+    );
+    if (!$stmt->execute()) {
+        http_response_code(500);
+        echo json_encode(['error' => 'No se pudo actualizar el equipo.']);
+        exit;
+    }
+
+    echo json_encode([
+        'id' => $id,
+        'tipo' => $tipo,
+        'marca' => $marca,
+        'modelo' => $modelo,
+        'serial' => $serial,
+        'ubicacion' => $ubicacion,
+        'estado' => $estado,
+        'equipoUsuario' => $equipoUsuario,
+        'equipoContrasena' => $equipoContrasena
+    ]);
+    exit;
+}
+
 http_response_code(405);
 echo json_encode(['error' => 'Metodo no permitido.']);

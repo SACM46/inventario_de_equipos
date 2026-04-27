@@ -24,9 +24,13 @@ interface AlertaEquipo {
   descripcion: string;
   fecha: string;
   estado: 'Abierta' | 'Resuelta';
+  fechaResolucion?: string;
+  resueltaPor?: string;
+  motivoResolucion?: string;
+  solucionado?: boolean;
 }
 
-type RolUsuario = 'admin' | 'usuario';
+type RolUsuario = 'admin' | 'soporte' | 'usuario';
 interface UsuarioSistema {
   usuario: string;
   contrasena: string;
@@ -111,11 +115,18 @@ export class App implements OnInit {
   credenciales = { usuario: '', contrasena: '' };
   mensajeUsuarios = '';
   tipoMensajeUsuarios: 'ok' | 'warning' | '' = '';
+  mostrarModalEdicionUsuario = false;
+  usuarioEnEdicionOriginal = '';
+  usuarioEdicion = {
+    nombre: '',
+    usuario: '',
+    contrasena: '',
+    rol: 'usuario' as 'soporte' | 'usuario'
+  };
 
   usuariosPermitidos: UsuarioSistema[] = [
     { usuario: 'admin', contrasena: 'admin123', nombre: 'Administrador', rol: 'admin', editable: false },
-    { usuario: 'soporte', contrasena: 'soporte123', nombre: 'Soporte', rol: 'admin', editable: false },
-    { usuario: 'usuario1', contrasena: 'usuario123', nombre: 'Usuario General', rol: 'usuario', editable: false }
+    { usuario: 'usuario1', contrasena: 'usuario123', nombre: 'Usuario General', rol: 'usuario', editable: true }
   ];
   nuevoUsuario: UsuarioSistema = {
     usuario: '',
@@ -134,11 +145,27 @@ export class App implements OnInit {
   };
 
   inventario: RegistroInventario[] = [];
+  mostrarModalEdicionEquipo = false;
+  equipoEnEdicionId: number | null = null;
+  equipoEdicion: DatosEquipoBase = {
+    tipo: 'Impresora',
+    marca: '',
+    modelo: '',
+    serial: '',
+    ubicacion: '',
+    estado: 'Activo'
+  };
 
   alertas: AlertaEquipo[] = [];
   nuevaAlerta = {
     equipoId: 0,
     descripcion: ''
+  };
+  mostrarModalResolverAlerta = false;
+  alertaEnResolucionId: number | null = null;
+  resolucionAlerta = {
+    motivo: '',
+    solucionado: '' as '' | 'si' | 'no'
   };
 
   constructor() {
@@ -180,7 +207,7 @@ export class App implements OnInit {
   }
 
   get alertasAbiertasVisibles(): AlertaEquipo[] {
-    if (this.esAdmin) {
+    if (this.puedeGestionarAlertas) {
       return this.alertasAbiertas;
     }
 
@@ -203,6 +230,28 @@ export class App implements OnInit {
 
   get esAdmin(): boolean {
     return this.rolActual === 'admin';
+  }
+
+  get esSoporte(): boolean {
+    return this.rolActual === 'soporte';
+  }
+
+  get puedeVerInventario(): boolean {
+    return this.esAdmin || this.esSoporte;
+  }
+
+  get puedeGestionarAlertas(): boolean {
+    return this.esAdmin || this.esSoporte;
+  }
+
+  get etiquetaRolActual(): string {
+    if (this.rolActual === 'admin') {
+      return 'Admin';
+    }
+    if (this.rolActual === 'soporte') {
+      return 'Soporte';
+    }
+    return 'Usuario';
   }
 
   get equiposParaReportarAlerta(): RegistroInventario[] {
@@ -232,7 +281,7 @@ export class App implements OnInit {
       this.guardarSesionLocal();
       this.credenciales = { usuario: '', contrasena: '' };
       this.mostrarMensajeAlerta(
-        `Bienvenido ${this.usuarioActual}. Rol: ${this.esAdmin ? 'Administrador' : 'Usuario'}.`,
+        `Bienvenido ${this.usuarioActual}. Rol: ${this.etiquetaRolActual}.`,
         'ok'
       );
       return;
@@ -324,13 +373,101 @@ export class App implements OnInit {
       return;
     }
     const objetivo = this.usuariosPermitidos.find((u) => u.usuario === usuario);
-    if (!objetivo?.editable) {
+    if (!objetivo) {
+      return;
+    }
+    if (!objetivo.editable && objetivo.rol === 'admin') {
       this.mostrarMensajeUsuarios('Este usuario base no se puede eliminar.', 'warning');
       return;
     }
     this.usuariosPermitidos = this.usuariosPermitidos.filter((u) => u.usuario !== usuario);
     this.guardarUsuariosLocal();
     this.mostrarMensajeUsuarios(`Usuario ${usuario} eliminado.`, 'ok');
+  }
+
+  abrirModalEditarUsuario(usuario: string): void {
+    if (!this.esAdmin) {
+      return;
+    }
+    const objetivo = this.usuariosPermitidos.find((u) => u.usuario === usuario);
+    if (!objetivo || !objetivo.editable) {
+      this.mostrarMensajeUsuarios('Este usuario base no se puede editar.', 'warning');
+      return;
+    }
+    this.usuarioEnEdicionOriginal = objetivo.usuario;
+    this.usuarioEdicion = {
+      nombre: objetivo.nombre,
+      usuario: objetivo.usuario,
+      contrasena: objetivo.contrasena,
+      rol: objetivo.rol === 'soporte' ? 'soporte' : 'usuario'
+    };
+    this.mostrarModalEdicionUsuario = true;
+  }
+
+  cerrarModalEditarUsuario(): void {
+    this.mostrarModalEdicionUsuario = false;
+    this.usuarioEnEdicionOriginal = '';
+    this.usuarioEdicion = {
+      nombre: '',
+      usuario: '',
+      contrasena: '',
+      rol: 'usuario'
+    };
+  }
+
+  guardarEdicionUsuario(): void {
+    if (!this.esAdmin) {
+      return;
+    }
+    const nombre = this.usuarioEdicion.nombre.trim();
+    const usuario = this.usuarioEdicion.usuario.trim().toLowerCase();
+    const contrasena = this.usuarioEdicion.contrasena.trim();
+    const rol = this.usuarioEdicion.rol;
+
+    if (!nombre || !usuario || !contrasena) {
+      this.mostrarMensajeUsuarios('Completa nombre, usuario, contrasena y rol.', 'warning');
+      return;
+    }
+    if (!/^[a-z0-9._-]{4,20}$/.test(usuario)) {
+      this.mostrarMensajeUsuarios(
+        'El usuario debe tener 4-20 caracteres (letras, numeros, punto, guion o guion bajo).',
+        'warning'
+      );
+      return;
+    }
+    if (contrasena.length < 6) {
+      this.mostrarMensajeUsuarios('La contrasena debe tener minimo 6 caracteres.', 'warning');
+      return;
+    }
+    if (rol !== 'soporte' && rol !== 'usuario') {
+      this.mostrarMensajeUsuarios('Solo se permite autorizar roles Soporte o Usuario.', 'warning');
+      return;
+    }
+    const existeOtroUsuario = this.usuariosPermitidos.some(
+      (u) =>
+        u.usuario.toLowerCase() === usuario &&
+        u.usuario.toLowerCase() !== this.usuarioEnEdicionOriginal.toLowerCase()
+    );
+    if (existeOtroUsuario) {
+      this.mostrarMensajeUsuarios('Ese usuario ya existe. Usa otro nombre de usuario.', 'warning');
+      return;
+    }
+
+    this.usuariosPermitidos = this.usuariosPermitidos.map((u) => {
+      if (u.usuario !== this.usuarioEnEdicionOriginal) {
+        return u;
+      }
+      return {
+        ...u,
+        nombre,
+        usuario,
+        contrasena,
+        rol
+      };
+    });
+    this.guardarUsuariosLocal();
+    this.mostrarMensajeUsuarios(`Usuario ${usuario} actualizado.`, 'ok');
+    this.cerrarModalEditarUsuario();
   }
 
   async agregarEquipo(): Promise<void> {
@@ -391,6 +528,71 @@ export class App implements OnInit {
     this.inventario = this.inventario.filter((equipo) => equipo.id !== id);
     this.alertas = this.alertas.filter((alerta) => alerta.equipoId !== id);
     this.guardarAlertasLocal();
+  }
+
+  abrirModalEditarEquipo(equipo: RegistroInventario): void {
+    if (!this.esAdmin) {
+      return;
+    }
+    this.equipoEnEdicionId = equipo.id;
+    this.equipoEdicion = {
+      tipo: equipo.tipo,
+      marca: equipo.marca,
+      modelo: equipo.modelo,
+      serial: equipo.serial,
+      ubicacion: equipo.ubicacion,
+      estado: equipo.estado
+    };
+    this.mostrarModalEdicionEquipo = true;
+  }
+
+  cerrarModalEditarEquipo(): void {
+    this.mostrarModalEdicionEquipo = false;
+    this.equipoEnEdicionId = null;
+    this.equipoEdicion = {
+      tipo: 'Impresora',
+      marca: '',
+      modelo: '',
+      serial: '',
+      ubicacion: '',
+      estado: 'Activo'
+    };
+  }
+
+  async guardarEdicionEquipo(): Promise<void> {
+    if (!this.esAdmin || this.equipoEnEdicionId === null) {
+      return;
+    }
+
+    const registroLimpio = {
+      tipo: this.equipoEdicion.tipo,
+      marca: this.equipoEdicion.marca.trim(),
+      modelo: this.equipoEdicion.modelo.trim(),
+      serial: this.equipoEdicion.serial.trim(),
+      ubicacion: this.equipoEdicion.ubicacion.trim(),
+      estado: this.equipoEdicion.estado
+    };
+    if (
+      !registroLimpio.marca ||
+      !registroLimpio.modelo ||
+      !registroLimpio.serial ||
+      !registroLimpio.ubicacion
+    ) {
+      this.mostrarMensajeAlerta('Completa marca, modelo, serial y ubicacion para editar.', 'warning');
+      return;
+    }
+
+    const actualizado = await this.actualizarEquipoEnApi(this.equipoEnEdicionId, registroLimpio);
+    if (!actualizado) {
+      this.mostrarMensajeAlerta('No se pudo actualizar el equipo en la base de datos.', 'warning');
+      return;
+    }
+
+    this.inventario = this.inventario.map((equipo) =>
+      equipo.id === actualizado.id ? { ...equipo, ...actualizado } : equipo
+    );
+    this.mostrarMensajeAlerta('Equipo actualizado correctamente.', 'ok');
+    this.cerrarModalEditarEquipo();
   }
 
   async copiarCredencialesEquipo(equipo: RegistroInventario): Promise<void> {
@@ -463,15 +665,58 @@ export class App implements OnInit {
     this.vistaActual = 'alertas';
   }
 
-  resolverAlerta(id: number): void {
-    if (!this.esAdmin) {
+  abrirModalResolverAlerta(id: number): void {
+    if (!this.puedeGestionarAlertas) {
       return;
     }
+    this.alertaEnResolucionId = id;
+    this.resolucionAlerta = {
+      motivo: '',
+      solucionado: ''
+    };
+    this.mostrarModalResolverAlerta = true;
+  }
+
+  cerrarModalResolverAlerta(): void {
+    this.mostrarModalResolverAlerta = false;
+    this.alertaEnResolucionId = null;
+    this.resolucionAlerta = {
+      motivo: '',
+      solucionado: ''
+    };
+  }
+
+  resolverAlerta(): void {
+    if (!this.puedeGestionarAlertas || this.alertaEnResolucionId === null) {
+      return;
+    }
+    const motivo = this.resolucionAlerta.motivo.trim();
+    if (!motivo || !this.resolucionAlerta.solucionado) {
+      this.mostrarMensajeAlerta(
+        'Completa el motivo e indica si la falla se arreglo o no.',
+        'warning'
+      );
+      return;
+    }
+    const seArreglo = this.resolucionAlerta.solucionado === 'si';
     this.alertas = this.alertas.map((alerta) =>
-      alerta.id === id ? { ...alerta, estado: 'Resuelta' } : alerta
+      alerta.id === this.alertaEnResolucionId
+        ? {
+            ...alerta,
+            estado: 'Resuelta',
+            motivoResolucion: motivo,
+            solucionado: seArreglo,
+            resueltaPor: this.usuarioActual,
+            fechaResolucion: new Date().toLocaleString()
+          }
+        : alerta
     );
     this.guardarAlertasLocal();
-    this.mostrarMensajeAlerta('Alerta marcada como resuelta.', 'ok');
+    this.mostrarMensajeAlerta(
+      `Alerta resuelta (${seArreglo ? 'falla corregida' : 'falla no corregida'}).`,
+      'ok'
+    );
+    this.cerrarModalResolverAlerta();
   }
 
   async exportarExcel(): Promise<void> {
@@ -604,6 +849,75 @@ export class App implements OnInit {
     doc.save(`inventario-equipos-${this.fechaArchivo()}.pdf`);
   }
 
+  async exportarPdfFiltrado(): Promise<void> {
+    if (!this.esAdmin) {
+      return;
+    }
+    const equiposAExportar = this.obtenerEquiposParaExportar();
+    if (equiposAExportar.length === 0) {
+      this.mostrarMensajeAlerta(
+        'No hay equipos para exportar con esos filtros. Cambia Tipo o Ubicacion.',
+        'warning'
+      );
+      return;
+    }
+
+    const jspdfModule = await import('jspdf');
+    const autoTableModule = await import('jspdf-autotable');
+    const doc = new jspdfModule.jsPDF();
+    doc.setFontSize(14);
+    doc.text('Inventario de Equipos (Filtrado)', 14, 16);
+    doc.setFontSize(10);
+    doc.text(`Total de equipos: ${equiposAExportar.length}`, 14, 22);
+
+    autoTableModule.default(doc, {
+      startY: 28,
+      head: [[
+        'Tipo',
+        'Marca',
+        'Modelo',
+        'Serial',
+        'Ubicacion',
+        'Usuario equipo',
+        'Contrasena equipo',
+        'Estado'
+      ]],
+      body: equiposAExportar.map((equipo) => [
+        equipo.tipo,
+        equipo.marca,
+        equipo.modelo,
+        equipo.serial,
+        equipo.ubicacion,
+        equipo.equipoUsuario,
+        equipo.equipoContrasena,
+        equipo.estado
+      ]),
+      styles: { fontSize: 9 }
+    });
+
+    const sufijoTipo =
+      this.filtroExportacionTipo === 'Todos'
+        ? 'todos'
+        : this.filtroExportacionTipo.toLowerCase().replace(/\s+/g, '-');
+    const sufijoUbicacion =
+      this.filtroExportacionUbicacion === 'Todas'
+        ? 'todas'
+        : this.filtroExportacionUbicacion.toLowerCase().replace(/\s+/g, '-');
+    const sufijoMarca =
+      this.filtroExportacionMarca === 'Todas'
+        ? 'todas-marcas'
+        : this.filtroExportacionMarca.toLowerCase().replace(/\s+/g, '-');
+
+    doc.save(
+      `inventario-${sufijoTipo}-${sufijoUbicacion}-${sufijoMarca}-${this.fechaArchivo()}.pdf`
+    );
+    this.mostrarMensajeAlerta(
+      `PDF exportado (${equiposAExportar.length} equipos).`,
+      'ok'
+    );
+    this.cerrarModalExportacion();
+  }
+
   async importarExcel(event: Event): Promise<void> {
     if (!this.esAdmin) {
       return;
@@ -680,6 +994,8 @@ export class App implements OnInit {
         'warning'
       );
     } else {
+      await this.cargarInventarioDesdeApi();
+      this.vistaActual = 'inventario';
       this.mostrarMensajeImportacion(
         `Importacion completada: ${this.importacionExitosos} cargados y ${this.importacionFallidos} omitidos.`,
         this.importacionFallidos > 0 ? 'warning' : 'ok'
@@ -889,6 +1205,29 @@ export class App implements OnInit {
     }
   }
 
+  private async actualizarEquipoEnApi(
+    id: number,
+    equipo: DatosEquipoBase
+  ): Promise<RegistroInventario | null> {
+    try {
+      const respuesta = await fetch(`${this.apiBaseUrl}/equipos.php?id=${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(equipo)
+      });
+      if (!respuesta.ok) {
+        return null;
+      }
+      const actualizado = (await respuesta.json()) as RegistroInventario;
+      return {
+        ...actualizado,
+        ...this.generarCredencialesEquipo(actualizado.serial)
+      };
+    } catch {
+      return null;
+    }
+  }
+
   private cargarAlertasLocal(): void {
     const datos = localStorage.getItem(this.alertasStorageKey);
     if (!datos) {
@@ -955,7 +1294,16 @@ export class App implements OnInit {
     try {
       const usuarios = JSON.parse(datos) as UsuarioSistema[];
       if (Array.isArray(usuarios) && usuarios.length > 0) {
-        this.usuariosPermitidos = usuarios;
+        const usuariosSinSoporteBase = usuarios.filter(
+          (u) => !(u.usuario === 'soporte' && u.editable === false)
+        );
+        this.usuariosPermitidos = usuariosSinSoporteBase.map((u) => {
+          if (u.usuario === 'usuario1') {
+            return { ...u, editable: true };
+          }
+          return u;
+        });
+        this.guardarUsuariosLocal();
       }
     } catch {
       localStorage.removeItem(this.usuariosStorageKey);

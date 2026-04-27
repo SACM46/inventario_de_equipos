@@ -50,6 +50,13 @@
   gap: 8px;
 }
 
+.tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .tab-activa {
   background: #15385b;
 }
@@ -375,9 +382,9 @@ th {
 
 .acciones-fila {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 6px;
-  align-items: stretch;
+  align-items: center;
 }
 
 .btn-copiar {
@@ -398,6 +405,38 @@ th {
 
 .btn-eliminar:hover {
   background: #b52a2a;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 8px;
+}
+
+.btn-icon i {
+  font-size: 15px;
+}
+
+.btn-editar {
+  background: #0b7285;
+}
+
+.btn-editar:hover {
+  background: #095c6b;
+}
+
+.btn-resolver {
+  background: #177245;
+}
+
+.btn-resolver:hover {
+  background: #125d39;
 }
 
 .sin-datos {
