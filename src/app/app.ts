@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 type TipoEquipo = 'Impresora' | 'Escaner' | 'PC Todo en Uno' | 'Laptop' | 'PC de Mesa';
@@ -27,6 +27,13 @@ interface AlertaEquipo {
 }
 
 type RolUsuario = 'admin' | 'usuario';
+interface UsuarioSistema {
+  usuario: string;
+  contrasena: string;
+  nombre: string;
+  rol: RolUsuario;
+  editable?: boolean;
+}
 
 @Component({
   selector: 'app-root',
@@ -35,9 +42,11 @@ type RolUsuario = 'admin' | 'usuario';
   styleUrl: './app.css'
 })
 export class App implements OnInit {
+  private readonly cdr = inject(ChangeDetectorRef);
   private readonly apiBaseUrl = 'http://localhost/inventario-app/api';
   private readonly alertasStorageKey = 'inventario_alertas_local';
   private readonly sessionStorageKey = 'inventario_sesion_local';
+  private readonly usuariosStorageKey = 'inventario_usuarios_local';
   private readonly contrasenaUniversalEquipo = 'Equipo2026';
   private readonly tiposValidos: TipoEquipo[] = [
     'Impresora',
@@ -77,7 +86,11 @@ export class App implements OnInit {
 
   tiposEquipo: TipoEquipo[] = ['Impresora', 'Escaner', 'PC Todo en Uno', 'Laptop', 'PC de Mesa'];
   filtroTipo: 'Todos' | TipoEquipo = 'Todos';
+  filtroExportacionTipo: 'Todos' | TipoEquipo = 'Todos';
+  filtroExportacionUbicacion = 'Todas';
+  filtroExportacionMarca = 'Todas';
   vistaActual: 'inventario' | 'alertas' = 'inventario';
+  mostrarOpcionesExportacion = false;
   mensajeImportacion = '';
   tipoMensajeImportacion: 'ok' | 'warning' | '' = '';
   importacionEnProgreso = false;
@@ -96,12 +109,20 @@ export class App implements OnInit {
   rolActual: RolUsuario | '' = '';
   equipoIdEnSesion: number | null = null;
   credenciales = { usuario: '', contrasena: '' };
+  mensajeUsuarios = '';
+  tipoMensajeUsuarios: 'ok' | 'warning' | '' = '';
 
-  usuariosPermitidos = [
-    { usuario: 'admin', contrasena: 'admin123', nombre: 'Administrador', rol: 'admin' as RolUsuario },
-    { usuario: 'soporte', contrasena: 'soporte123', nombre: 'Soporte', rol: 'admin' as RolUsuario },
-    { usuario: 'usuario1', contrasena: 'usuario123', nombre: 'Usuario General', rol: 'usuario' as RolUsuario }
+  usuariosPermitidos: UsuarioSistema[] = [
+    { usuario: 'admin', contrasena: 'admin123', nombre: 'Administrador', rol: 'admin', editable: false },
+    { usuario: 'soporte', contrasena: 'soporte123', nombre: 'Soporte', rol: 'admin', editable: false },
+    { usuario: 'usuario1', contrasena: 'usuario123', nombre: 'Usuario General', rol: 'usuario', editable: false }
   ];
+  nuevoUsuario: UsuarioSistema = {
+    usuario: '',
+    contrasena: '',
+    nombre: '',
+    rol: 'usuario'
+  };
 
   nuevoRegistro: DatosEquipoBase = {
     tipo: 'Impresora',
@@ -121,6 +142,7 @@ export class App implements OnInit {
   };
 
   constructor() {
+    this.cargarUsuariosLocal();
     this.cargarAlertasLocal();
     this.cargarSesionLocal();
   }
@@ -139,6 +161,18 @@ export class App implements OnInit {
     }
 
     return this.inventario.filter((equipo) => equipo.tipo === this.filtroTipo);
+  }
+
+  get ubicacionesDisponibles(): string[] {
+    return [...new Set(this.inventario.map((equipo) => equipo.ubicacion).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b, 'es')
+    );
+  }
+
+  get marcasDisponibles(): string[] {
+    return [...new Set(this.inventario.map((equipo) => equipo.marca).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b, 'es')
+    );
   }
 
   get alertasAbiertas(): AlertaEquipo[] {
@@ -242,6 +276,63 @@ export class App implements OnInit {
     this.mostrarMensajeAlerta('Sesion cerrada.', 'ok');
   }
 
+  crearUsuario(): void {
+    if (!this.esAdmin) {
+      return;
+    }
+    const usuario = this.nuevoUsuario.usuario.trim().toLowerCase();
+    const contrasena = this.nuevoUsuario.contrasena.trim();
+    const nombre = this.nuevoUsuario.nombre.trim();
+
+    if (!usuario || !contrasena || !nombre) {
+      this.mostrarMensajeUsuarios('Completa nombre, usuario y contrasena.', 'warning');
+      return;
+    }
+    if (!/^[a-z0-9._-]{4,20}$/.test(usuario)) {
+      this.mostrarMensajeUsuarios(
+        'El usuario debe tener 4-20 caracteres (letras, numeros, punto, guion o guion bajo).',
+        'warning'
+      );
+      return;
+    }
+    if (contrasena.length < 6) {
+      this.mostrarMensajeUsuarios('La contrasena debe tener minimo 6 caracteres.', 'warning');
+      return;
+    }
+    if (this.usuariosPermitidos.some((u) => u.usuario.toLowerCase() === usuario)) {
+      this.mostrarMensajeUsuarios('Ese usuario ya existe. Usa otro nombre de usuario.', 'warning');
+      return;
+    }
+
+    this.usuariosPermitidos = [
+      ...this.usuariosPermitidos,
+      {
+        usuario,
+        contrasena,
+        nombre,
+        rol: this.nuevoUsuario.rol,
+        editable: true
+      }
+    ];
+    this.guardarUsuariosLocal();
+    this.nuevoUsuario = { usuario: '', contrasena: '', nombre: '', rol: 'usuario' };
+    this.mostrarMensajeUsuarios('Usuario creado correctamente.', 'ok');
+  }
+
+  eliminarUsuario(usuario: string): void {
+    if (!this.esAdmin) {
+      return;
+    }
+    const objetivo = this.usuariosPermitidos.find((u) => u.usuario === usuario);
+    if (!objetivo?.editable) {
+      this.mostrarMensajeUsuarios('Este usuario base no se puede eliminar.', 'warning');
+      return;
+    }
+    this.usuariosPermitidos = this.usuariosPermitidos.filter((u) => u.usuario !== usuario);
+    this.guardarUsuariosLocal();
+    this.mostrarMensajeUsuarios(`Usuario ${usuario} eliminado.`, 'ok');
+  }
+
   async agregarEquipo(): Promise<void> {
     if (!this.esAdmin) {
       return;
@@ -343,6 +434,9 @@ export class App implements OnInit {
   }
 
   reportarAlerta(): void {
+    if (!this.sesionActiva || !this.rolActual) {
+      return;
+    }
     this.limpiarMensajeAlerta();
     const descripcion = this.nuevaAlerta.descripcion.trim();
 
@@ -384,8 +478,17 @@ export class App implements OnInit {
     if (!this.esAdmin) {
       return;
     }
+    const equiposAExportar = this.obtenerEquiposParaExportar();
+    if (equiposAExportar.length === 0) {
+      this.mostrarMensajeAlerta(
+        'No hay equipos para exportar con esos filtros. Cambia Tipo o Ubicacion.',
+        'warning'
+      );
+      return;
+    }
+
     const xlsx = await import('xlsx');
-    const datos = this.inventario.map((equipo) => ({
+    const datos = equiposAExportar.map((equipo) => ({
       Tipo: equipo.tipo,
       Marca: equipo.marca,
       Modelo: equipo.modelo,
@@ -399,7 +502,43 @@ export class App implements OnInit {
     const hoja = xlsx.utils.json_to_sheet(datos);
     const libro = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(libro, hoja, 'Inventario');
-    xlsx.writeFile(libro, `inventario-equipos-${this.fechaArchivo()}.xlsx`);
+    const sufijoTipo =
+      this.filtroExportacionTipo === 'Todos'
+        ? 'todos'
+        : this.filtroExportacionTipo.toLowerCase().replace(/\s+/g, '-');
+    const sufijoUbicacion =
+      this.filtroExportacionUbicacion === 'Todas'
+        ? 'todas'
+        : this.filtroExportacionUbicacion.toLowerCase().replace(/\s+/g, '-');
+    const sufijoMarca =
+      this.filtroExportacionMarca === 'Todas'
+        ? 'todas-marcas'
+        : this.filtroExportacionMarca.toLowerCase().replace(/\s+/g, '-');
+
+    xlsx.writeFile(
+      libro,
+      `inventario-${sufijoTipo}-${sufijoUbicacion}-${sufijoMarca}-${this.fechaArchivo()}.xlsx`
+    );
+    this.mostrarMensajeAlerta(
+      `Excel exportado (${equiposAExportar.length} equipos).`,
+      'ok'
+    );
+    this.cerrarModalExportacion();
+  }
+
+  abrirModalExportacion(): void {
+    this.limpiarFiltrosExportacion();
+    this.mostrarOpcionesExportacion = true;
+  }
+
+  cerrarModalExportacion(): void {
+    this.mostrarOpcionesExportacion = false;
+  }
+
+  limpiarFiltrosExportacion(): void {
+    this.filtroExportacionTipo = 'Todos';
+    this.filtroExportacionUbicacion = 'Todas';
+    this.filtroExportacionMarca = 'Todas';
   }
 
   async descargarPlantillaExcel(): Promise<void> {
@@ -499,6 +638,7 @@ export class App implements OnInit {
     this.importacionExitosos = 0;
     this.importacionFallidos = 0;
     this.detallesImportacionFallida = [];
+    this.cdr.detectChanges();
 
     const serialesOcupados = new Set(this.inventario.map((equipo) => equipo.serial));
     const nuevosGuardados: RegistroInventario[] = [];
@@ -522,6 +662,7 @@ export class App implements OnInit {
       if (guardado) {
         this.importacionExitosos += 1;
         nuevosGuardados.push(guardado);
+        this.inventario = [guardado, ...this.inventario];
       } else {
         this.importacionFallidos += 1;
         this.detallesImportacionFallida.push(
@@ -530,10 +671,7 @@ export class App implements OnInit {
       }
 
       this.importacionProcesados += 1;
-    }
-
-    if (nuevosGuardados.length > 0) {
-      this.inventario = [...nuevosGuardados, ...this.inventario];
+      this.cdr.detectChanges();
     }
 
     if (this.importacionExitosos === 0) {
@@ -550,6 +688,7 @@ export class App implements OnInit {
 
     this.importacionEnProgreso = false;
     input.value = '';
+    this.cdr.detectChanges();
   }
 
   private mapearFilaARegistro(fila: Record<string, unknown>): DatosEquipoBase | null {
@@ -659,6 +798,19 @@ export class App implements OnInit {
     return `${yyyy}-${mm}-${dd}`;
   }
 
+  private obtenerEquiposParaExportar(): RegistroInventario[] {
+    return this.inventario.filter((equipo) => {
+      const coincideTipo =
+        this.filtroExportacionTipo === 'Todos' || equipo.tipo === this.filtroExportacionTipo;
+      const coincideUbicacion =
+        this.filtroExportacionUbicacion === 'Todas' ||
+        equipo.ubicacion === this.filtroExportacionUbicacion;
+      const coincideMarca =
+        this.filtroExportacionMarca === 'Todas' || equipo.marca === this.filtroExportacionMarca;
+      return coincideTipo && coincideUbicacion && coincideMarca;
+    });
+  }
+
   private mostrarMensajeImportacion(
     mensaje: string,
     tipo: 'ok' | 'warning'
@@ -675,6 +827,11 @@ export class App implements OnInit {
   private mostrarMensajeAlerta(mensaje: string, tipo: 'ok' | 'warning'): void {
     this.mensajeAlerta = mensaje;
     this.tipoMensajeAlerta = tipo;
+  }
+
+  private mostrarMensajeUsuarios(mensaje: string, tipo: 'ok' | 'warning'): void {
+    this.mensajeUsuarios = mensaje;
+    this.tipoMensajeUsuarios = tipo;
   }
 
   private limpiarMensajeAlerta(): void {
@@ -788,5 +945,24 @@ export class App implements OnInit {
         equipoIdEnSesion: this.equipoIdEnSesion
       })
     );
+  }
+
+  private cargarUsuariosLocal(): void {
+    const datos = localStorage.getItem(this.usuariosStorageKey);
+    if (!datos) {
+      return;
+    }
+    try {
+      const usuarios = JSON.parse(datos) as UsuarioSistema[];
+      if (Array.isArray(usuarios) && usuarios.length > 0) {
+        this.usuariosPermitidos = usuarios;
+      }
+    } catch {
+      localStorage.removeItem(this.usuariosStorageKey);
+    }
+  }
+
+  private guardarUsuariosLocal(): void {
+    localStorage.setItem(this.usuariosStorageKey, JSON.stringify(this.usuariosPermitidos));
   }
 }

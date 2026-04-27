@@ -250,6 +250,76 @@ button:hover {
   color: #244566;
 }
 
+.btn-opciones-exportar {
+  background: #4b5f7a;
+}
+
+.btn-opciones-exportar:hover {
+  background: #3f5066;
+}
+
+.modal-exportacion-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 20, 35, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+
+.modal-exportacion {
+  width: min(560px, 100%);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(13, 32, 59, 0.35);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.modal-exportacion__encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.modal-exportacion__encabezado h3 {
+  margin: 0;
+}
+
+.btn-cerrar-modal {
+  background: #6f7f93;
+  width: 42px;
+}
+
+.btn-cerrar-modal:hover {
+  background: #5b6c7f;
+}
+
+.modal-exportacion__controles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.modal-exportacion__acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  align-items: end;
+}
+
+.btn-limpiar-filtros {
+  background: #55657a;
+}
+
+.btn-limpiar-filtros:hover {
+  background: #47566a;
+}
+
 .detalle-fallidos {
   margin: 8px 0 0;
   padding-left: 18px;

@@ -98,6 +98,69 @@
 
   @if (sesionActiva && esAdmin && vistaActual === 'inventario') {
   <section class="tarjeta">
+    <h2>Gestion de usuarios</h2>
+    <form class="formulario" (ngSubmit)="crearUsuario()">
+      <label>
+        Nombre
+        <input type="text" name="nuevoNombre" [(ngModel)]="nuevoUsuario.nombre" />
+      </label>
+      <label>
+        Usuario
+        <input type="text" name="nuevoUsuario" [(ngModel)]="nuevoUsuario.usuario" />
+      </label>
+      <label>
+        Contrasena
+        <input type="password" name="nuevoPass" [(ngModel)]="nuevoUsuario.contrasena" />
+      </label>
+      <label>
+        Rol
+        <select name="nuevoRol" [(ngModel)]="nuevoUsuario.rol">
+          <option value="usuario">Usuario</option>
+          <option value="admin">Admin</option>
+        </select>
+      </label>
+      <button type="submit">Crear usuario</button>
+    </form>
+    @if (mensajeUsuarios) {
+      <p class="mensaje-importacion" [class.warning]="tipoMensajeUsuarios === 'warning'">
+        {{ mensajeUsuarios }}
+      </p>
+    }
+    <div class="tabla-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th>Accion</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (usuario of usuariosPermitidos; track usuario.usuario) {
+            <tr>
+              <td>{{ usuario.nombre }}</td>
+              <td>{{ usuario.usuario }}</td>
+              <td>{{ usuario.rol }}</td>
+              <td>
+                @if (usuario.editable) {
+                  <button type="button" class="btn-eliminar" (click)="eliminarUsuario(usuario.usuario)">
+                    Eliminar
+                  </button>
+                } @else {
+                  <span>Base</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  }
+
+  @if (sesionActiva && esAdmin && vistaActual === 'inventario') {
+  <section class="tarjeta">
     <div class="filtros">
       <h2>Listado de equipos</h2>
       <div class="filtros-derecha">
@@ -115,7 +178,11 @@
             accept=".xlsx,.xls"
             (change)="importarExcel($event)"
           />
-          <button type="button" class="btn-exportar-excel" (click)="exportarExcel()">
+          <button
+            type="button"
+            class="btn-exportar-excel"
+            (click)="abrirModalExportacion()"
+          >
             Exportar a Excel
           </button>
           <button type="button" class="btn-exportar-pdf" (click)="exportarPdf()">
@@ -167,31 +234,6 @@
         {{ mensajePortapapeles }}
       </p>
     }
-    <h3>Reportar problema de equipo</h3>
-    <form class="formulario-alerta" (ngSubmit)="reportarAlerta()">
-      <label>
-        Equipo
-        <select name="equipoAlerta" [(ngModel)]="nuevaAlerta.equipoId">
-          <option [ngValue]="0">Seleccionar...</option>
-          @for (equipo of inventario; track equipo.id) {
-            <option [ngValue]="equipo.id">
-              {{ equipo.tipo }} - {{ equipo.marca }} {{ equipo.modelo }} ({{ equipo.serial }})
-            </option>
-          }
-        </select>
-      </label>
-      <label>
-        Descripcion de la falla
-        <input type="text" name="descripcionAlerta" [(ngModel)]="nuevaAlerta.descripcion" />
-      </label>
-      <button type="submit">Registrar alerta</button>
-    </form>
-    @if (mensajeAlerta) {
-      <p class="mensaje-importacion" [class.warning]="tipoMensajeAlerta === 'warning'">
-        {{ mensajeAlerta }}
-      </p>
-    }
-
     <div class="tabla-wrap">
       <table>
         <thead>
@@ -251,34 +293,32 @@
 
   @if (sesionActiva && vistaActual === 'alertas') {
     <section class="tarjeta">
-      <h2>{{ esAdmin ? 'Equipos con problemas (Alertas)' : 'Registrar problema de equipo' }}</h2>
+      <h2>{{ esAdmin ? 'Gestion de alertas' : 'Registrar problema de equipo' }}</h2>
       @if (mensajeAlerta) {
         <p class="mensaje-importacion" [class.warning]="tipoMensajeAlerta === 'warning'">
           {{ mensajeAlerta }}
         </p>
       }
-      @if (!esAdmin) {
-        <form class="formulario-alerta" (ngSubmit)="reportarAlerta()">
-          <label>
-            Equipo
-            <select name="equipoAlertaUsuario" [(ngModel)]="nuevaAlerta.equipoId">
-              @if (equipoIdEnSesion === null) {
-                <option [ngValue]="0">Seleccionar...</option>
-              }
-              @for (equipo of equiposParaReportarAlerta; track equipo.id) {
-                <option [ngValue]="equipo.id">
-                  {{ equipo.tipo }} - {{ equipo.marca }} {{ equipo.modelo }} ({{ equipo.serial }})
-                </option>
-              }
-            </select>
-          </label>
-          <label>
-            Descripcion de la falla
-            <input type="text" name="descripcionAlertaUsuario" [(ngModel)]="nuevaAlerta.descripcion" />
-          </label>
-          <button type="submit">Registrar alerta</button>
-        </form>
-      }
+      <form class="formulario-alerta" (ngSubmit)="reportarAlerta()">
+        <label>
+          Equipo
+          <select name="equipoAlertaUsuario" [(ngModel)]="nuevaAlerta.equipoId">
+            @if (equipoIdEnSesion === null) {
+              <option [ngValue]="0">Seleccionar...</option>
+            }
+            @for (equipo of equiposParaReportarAlerta; track equipo.id) {
+              <option [ngValue]="equipo.id">
+                {{ equipo.tipo }} - {{ equipo.marca }} {{ equipo.modelo }} ({{ equipo.serial }})
+              </option>
+            }
+          </select>
+        </label>
+        <label>
+          Descripcion de la falla
+          <input type="text" name="descripcionAlertaUsuario" [(ngModel)]="nuevaAlerta.descripcion" />
+        </label>
+        <button type="submit">Registrar alerta</button>
+      </form>
       <div class="tabla-wrap">
         <table>
           <thead>
@@ -318,5 +358,55 @@
         </table>
       </div>
     </section>
+  }
+
+  @if (sesionActiva && esAdmin && vistaActual === 'inventario' && mostrarOpcionesExportacion) {
+    <div class="modal-exportacion-backdrop" (click)="cerrarModalExportacion()">
+      <section class="modal-exportacion" (click)="$event.stopPropagation()">
+        <header class="modal-exportacion__encabezado">
+          <h3>Exportar Excel con filtros</h3>
+          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalExportacion()">X</button>
+        </header>
+
+        <div class="modal-exportacion__controles">
+          <label>
+            Tipo
+            <select name="filtroExportacionTipo" [(ngModel)]="filtroExportacionTipo">
+              <option value="Todos">Todos</option>
+              @for (tipo of tiposEquipo; track tipo) {
+                <option [value]="tipo">{{ tipo }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            Ubicacion
+            <select name="filtroExportacionUbicacion" [(ngModel)]="filtroExportacionUbicacion">
+              <option value="Todas">Todas</option>
+              @for (ubicacion of ubicacionesDisponibles; track ubicacion) {
+                <option [value]="ubicacion">{{ ubicacion }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            Marca
+            <select name="filtroExportacionMarca" [(ngModel)]="filtroExportacionMarca">
+              <option value="Todas">Todas</option>
+              @for (marca of marcasDisponibles; track marca) {
+                <option [value]="marca">{{ marca }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        <footer class="modal-exportacion__acciones">
+          <button type="button" class="btn-limpiar-filtros" (click)="limpiarFiltrosExportacion()">
+            Limpiar filtros
+          </button>
+          <button type="button" class="btn-exportar-excel" (click)="exportarExcel()">
+            Descargar Excel filtrado
+          </button>
+        </footer>
+      </section>
+    </div>
   }
 </main>
