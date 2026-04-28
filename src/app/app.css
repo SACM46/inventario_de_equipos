@@ -13,14 +13,21 @@
 .layout {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 16px;
   display: grid;
-  gap: 20px;
+  gap: 14px;
+}
+
+.encabezado {
+  text-align: center;
 }
 
 .encabezado h1 {
   margin: 0 0 6px;
   color: #15385b;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .encabezado p {
@@ -30,8 +37,9 @@
 .tarjeta {
   background: #ffffff;
   border-radius: 10px;
-  padding: 18px;
+  padding: 12px;
   box-shadow: 0 4px 12px rgba(15, 30, 60, 0.08);
+  width: 100%;
 }
 
 .tarjeta h2 {
@@ -40,21 +48,30 @@
 
 .barra-superior {
   display: flex;
+  flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+  text-align: left;
 }
 
 .tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  flex: 1 1 auto;
 }
 
 .tabs button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
+  padding: 7px 10px;
+  font-size: 13px;
+  line-height: 1.1;
 }
 
 .tab-activa {
@@ -64,7 +81,15 @@
 .usuario {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.usuario span {
+  font-weight: 600;
+  font-size: 15px;
 }
 
 .btn-cerrar {
@@ -77,6 +102,7 @@
 
 .login {
   max-width: 560px;
+  margin: 0 auto;
 }
 
 .formulario-login {
@@ -117,6 +143,10 @@ button {
   border: none;
   cursor: pointer;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 button:hover {
@@ -125,24 +155,88 @@ button:hover {
 
 .filtros {
   display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.filtros h2 {
+  margin: 0;
+  width: 100%;
 }
 
 .filtro-grupo {
-  min-width: 220px;
+  width: 100%;
+  max-width: none;
 }
 
 .filtros-derecha {
+  width: 100%;
+  flex: 1 1 0;
   display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
   align-items: end;
-  gap: 10px;
+  gap: 6px;
+  order: 1;
+}
+
+.filtros-derecha .filtro-grupo {
+  flex: 0 1 170px;
+  min-width: 140px;
+  max-width: 170px;
+}
+
+.filtros-derecha .filtro-grupo--busqueda-equipos {
+  flex: 1 1 240px;
+  min-width: 200px;
+  max-width: 320px;
+  order: -1;
+}
+
+.filtro-grupo select {
+  width: 100%;
+}
+
+.filtros-derecha label {
+  gap: 4px;
+  font-size: 13px;
+}
+
+.filtros-derecha select {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.filtros-derecha input {
+  padding: 8px 10px;
+  font-size: 13px;
 }
 
 .acciones-exportar {
   display: flex;
-  gap: 8px;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  order: 2;
+}
+
+.acciones-exportar button {
+  min-width: 84px;
+  padding: 7px 10px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.acciones-exportar .btn-importar,
+.acciones-exportar .btn-plantilla-excel,
+.acciones-exportar .btn-exportar-excel,
+.acciones-exportar .btn-exportar-pdf {
+  width: 110px;
+  min-width: 110px;
+  justify-content: center;
 }
 
 .input-archivo {
@@ -160,6 +254,10 @@ button:hover {
   padding: 10px 12px;
   line-height: 1.2;
   text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .btn-importar:hover {
@@ -197,8 +295,9 @@ button:hover {
 }
 
 .total {
-  margin: 12px 0;
+  margin: 6px 0;
   font-weight: 700;
+  text-align: center;
 }
 
 .formulario-alerta {
@@ -215,9 +314,37 @@ button:hover {
   background: #ddf8e7;
   color: #0b7a37;
   font-weight: 600;
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  align-items: center;
+  gap: 8px;
 }
 
 .mensaje-importacion.warning {
+  background: #fff2d5;
+  color: #8a5a00;
+}
+
+.toast-conexion {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1200;
+  max-width: min(540px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #ddf8e7;
+  color: #0b7a37;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 10px 26px rgba(10, 27, 46, 0.18);
+}
+
+.toast-conexion.warning {
   background: #fff2d5;
   color: #8a5a00;
 }
@@ -255,6 +382,7 @@ button:hover {
   margin: 8px 0 0;
   font-weight: 600;
   color: #244566;
+  text-align: center;
 }
 
 .btn-opciones-exportar {
@@ -286,6 +414,46 @@ button:hover {
   gap: 12px;
 }
 
+.modal-importacion-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 20, 35, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1100;
+}
+
+.modal-importacion {
+  width: min(520px, 100%);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(13, 32, 59, 0.35);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.modal-importacion__encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.modal-importacion__encabezado h3 {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-importacion__acciones {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .modal-exportacion__encabezado {
   display: flex;
   align-items: center;
@@ -314,9 +482,10 @@ button:hover {
 
 .modal-exportacion__acciones {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 8px;
   align-items: end;
+  flex-wrap: wrap;
 }
 
 .btn-limpiar-filtros {
@@ -423,6 +592,12 @@ th {
   font-size: 15px;
 }
 
+h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .btn-editar {
   background: #0b7285;
 }
@@ -439,6 +614,29 @@ th {
   background: #125d39;
 }
 
+.historial-controles {
+  margin: 8px 0 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+}
+
+.historial-controles .filtro-grupo {
+  flex: 1 1 200px;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.historial-controles .filtro-grupo--busqueda {
+  flex: 1 1 260px;
+  max-width: 360px;
+}
+
+.acciones-exportar--historial {
+  margin-left: auto;
+}
+
 .sin-datos {
   text-align: center;
   color: #586274;
@@ -451,8 +649,7 @@ th {
   }
 
   .filtros {
-    flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
   }
 
   .filtro-grupo {
@@ -462,8 +659,13 @@ th {
   .filtros-derecha,
   .acciones-exportar {
     width: 100%;
+    display: flex;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .acciones-exportar button {
+    width: 100%;
   }
 
   .barra-superior,

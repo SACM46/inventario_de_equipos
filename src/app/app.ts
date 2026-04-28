@@ -31,6 +31,7 @@ interface AlertaEquipo {
 }
 
 type RolUsuario = 'admin' | 'soporte' | 'usuario';
+type VistaPrincipal = 'equipos' | 'usuarios' | 'alertas';
 interface UsuarioSistema {
   usuario: string;
   contrasena: string;
@@ -93,7 +94,9 @@ export class App implements OnInit {
   filtroExportacionTipo: 'Todos' | TipoEquipo = 'Todos';
   filtroExportacionUbicacion = 'Todas';
   filtroExportacionMarca = 'Todas';
-  vistaActual: 'inventario' | 'alertas' = 'inventario';
+  filtroExportacionEstado: 'Todos' | 'Activo' | 'En reparacion' | 'Baja' = 'Todos';
+  filtroBusquedaEquipos = '';
+  vistaActual: VistaPrincipal = 'equipos';
   mostrarOpcionesExportacion = false;
   mensajeImportacion = '';
   tipoMensajeImportacion: 'ok' | 'warning' | '' = '';
@@ -103,11 +106,17 @@ export class App implements OnInit {
   importacionExitosos = 0;
   importacionFallidos = 0;
   detallesImportacionFallida: string[] = [];
+  cancelacionImportacionSolicitada = false;
+  private importacionTimeoutId: ReturnType<typeof setTimeout> | null = null;
   mensajePortapapeles = '';
   tipoMensajePortapapeles: 'ok' | 'warning' | '' = '';
   private portapapelesTimeoutId: ReturnType<typeof setTimeout> | null = null;
   mensajeAlerta = '';
   tipoMensajeAlerta: 'ok' | 'warning' | '' = '';
+  private alertaTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  mensajeConexionApi = 'Verificando conexion con backend...';
+  tipoMensajeConexionApi: 'ok' | 'warning' | '' = '';
+  private conexionApiTimeoutId: ReturnType<typeof setTimeout> | null = null;
   sesionActiva = false;
   usuarioActual = '';
   rolActual: RolUsuario | '' = '';
@@ -167,6 +176,15 @@ export class App implements OnInit {
     motivo: '',
     solucionado: '' as '' | 'si' | 'no'
   };
+  historialFiltroEquipoId: number | 'Todos' = 'Todos';
+  historialFiltroResultado: 'Todos' | 'Corregida' | 'No corregida' = 'Todos';
+  historialBusqueda = '';
+  mostrarModalEditarHistorial = false;
+  alertaEnEdicionHistorialId: number | null = null;
+  historialEdicion = {
+    motivo: '',
+    solucionado: '' as '' | 'si' | 'no'
+  };
 
   constructor() {
     this.cargarUsuariosLocal();
@@ -175,19 +193,48 @@ export class App implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    const apiDisponible = await this.verificarConexionApi();
+    if (!apiDisponible) {
+      this.mostrarMensajeConexionApi(
+        'No hay conexion con backend/API. Verifica Apache, MySQL y la ruta http://localhost/inventario-app/api.',
+        'warning',
+        5000
+      );
+      return;
+    }
+    this.mostrarMensajeConexionApi('Conexion con backend/API verificada.', 'ok', 3000);
     await this.cargarInventarioDesdeApi();
   }
 
   get totalEquipos(): number {
-    return this.inventario.length;
+    return this.equiposFiltrados.length;
   }
 
   get equiposFiltrados(): RegistroInventario[] {
-    if (this.filtroTipo === 'Todos') {
-      return this.inventario;
-    }
-
-    return this.inventario.filter((equipo) => equipo.tipo === this.filtroTipo);
+    const termino = this.filtroBusquedaEquipos.trim().toLowerCase();
+    return this.inventario.filter((equipo) => {
+      const coincideTipo =
+        this.filtroExportacionTipo === 'Todos' || equipo.tipo === this.filtroExportacionTipo;
+      const coincideUbicacion =
+        this.filtroExportacionUbicacion === 'Todas' ||
+        equipo.ubicacion === this.filtroExportacionUbicacion;
+      const coincideMarca =
+        this.filtroExportacionMarca === 'Todas' || equipo.marca === this.filtroExportacionMarca;
+      const coincideEstado =
+        this.filtroExportacionEstado === 'Todos' || equipo.estado === this.filtroExportacionEstado;
+      const textoBase = [
+        equipo.tipo,
+        equipo.marca,
+        equipo.modelo,
+        equipo.serial,
+        equipo.ubicacion,
+        equipo.estado
+      ]
+        .join(' ')
+        .toLowerCase();
+      const coincideBusqueda = !termino || textoBase.includes(termino);
+      return coincideTipo && coincideUbicacion && coincideMarca && coincideEstado && coincideBusqueda;
+    });
   }
 
   get ubicacionesDisponibles(): string[] {
@@ -221,6 +268,63 @@ export class App implements OnInit {
     }));
   }
 
+  get alertasResueltasVisibles(): AlertaEquipo[] {
+    const resueltas = this.alertas.filter((alerta) => alerta.estado === 'Resuelta');
+    if (this.puedeGestionarAlertas) {
+      return resueltas;
+    }
+    return resueltas.filter((alerta) => alerta.reportadoPor === this.usuarioActual);
+  }
+
+  get historialAlertasConEquipo(): Array<AlertaEquipo & { equipo: RegistroInventario | undefined }> {
+    return this.alertasResueltasVisibles.map((alerta) => ({
+      ...alerta,
+      equipo: this.inventario.find((equipo) => equipo.id === alerta.equipoId)
+    }));
+  }
+
+  get historialEquiposDisponibles(): Array<{ id: number; etiqueta: string }> {
+    const mapa = new Map<number, string>();
+    for (const alerta of this.historialAlertasConEquipo) {
+      if (!alerta.equipo) {
+        continue;
+      }
+      mapa.set(
+        alerta.equipo.id,
+        `${alerta.equipo.tipo} - ${alerta.equipo.marca} ${alerta.equipo.modelo} (${alerta.equipo.serial})`
+      );
+    }
+    return Array.from(mapa.entries())
+      .map(([id, etiqueta]) => ({ id, etiqueta }))
+      .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es'));
+  }
+
+  get historialAlertasFiltrado(): Array<AlertaEquipo & { equipo: RegistroInventario | undefined }> {
+    const termino = this.historialBusqueda.trim().toLowerCase();
+    return this.historialAlertasConEquipo.filter((alerta) => {
+      const coincideEquipo =
+        this.historialFiltroEquipoId === 'Todos' || alerta.equipoId === this.historialFiltroEquipoId;
+      const resultado = alerta.solucionado ? 'Corregida' : 'No corregida';
+      const coincideResultado =
+        this.historialFiltroResultado === 'Todos' || this.historialFiltroResultado === resultado;
+      const textoBase = [
+        alerta.descripcion,
+        alerta.reportadoPor,
+        alerta.resueltaPor ?? '',
+        alerta.motivoResolucion ?? '',
+        alerta.equipo?.tipo ?? '',
+        alerta.equipo?.marca ?? '',
+        alerta.equipo?.modelo ?? '',
+        alerta.equipo?.serial ?? '',
+        alerta.equipo?.ubicacion ?? ''
+      ]
+        .join(' ')
+        .toLowerCase();
+      const coincideBusqueda = !termino || textoBase.includes(termino);
+      return coincideEquipo && coincideResultado && coincideBusqueda;
+    });
+  }
+
   get progresoImportacionPorcentaje(): number {
     if (!this.importacionTotal) {
       return 0;
@@ -238,6 +342,14 @@ export class App implements OnInit {
 
   get puedeVerInventario(): boolean {
     return this.esAdmin || this.esSoporte;
+  }
+
+  get puedeGestionarUsuarios(): boolean {
+    return this.esAdmin;
+  }
+
+  get puedeImportarExportar(): boolean {
+    return this.esAdmin;
   }
 
   get puedeGestionarAlertas(): boolean {
@@ -277,7 +389,7 @@ export class App implements OnInit {
       this.usuarioActual = usuarioValido.nombre;
       this.rolActual = usuarioValido.rol;
       this.equipoIdEnSesion = null;
-      this.vistaActual = this.esAdmin ? 'inventario' : 'alertas';
+      this.vistaActual = this.esAdmin || this.esSoporte ? 'equipos' : 'alertas';
       this.guardarSesionLocal();
       this.credenciales = { usuario: '', contrasena: '' };
       this.mostrarMensajeAlerta(
@@ -505,6 +617,7 @@ export class App implements OnInit {
       return;
     }
     this.inventario.unshift(guardado);
+    this.cdr.detectChanges();
 
     this.nuevoRegistro = {
       tipo: this.nuevoRegistro.tipo,
@@ -514,6 +627,7 @@ export class App implements OnInit {
       ubicacion: '',
       estado: 'Activo'
     };
+    this.cdr.detectChanges();
   }
 
   async eliminarEquipo(id: number): Promise<void> {
@@ -719,14 +833,80 @@ export class App implements OnInit {
     this.cerrarModalResolverAlerta();
   }
 
+  abrirModalEditarHistorial(id: number): void {
+    if (!this.esAdmin) {
+      return;
+    }
+    const alerta = this.alertas.find((item) => item.id === id && item.estado === 'Resuelta');
+    if (!alerta) {
+      this.mostrarMensajeAlerta('No se encontro la alerta en historial.', 'warning');
+      return;
+    }
+    this.alertaEnEdicionHistorialId = id;
+    this.historialEdicion = {
+      motivo: alerta.motivoResolucion ?? '',
+      solucionado: alerta.solucionado ? 'si' : 'no'
+    };
+    this.mostrarModalEditarHistorial = true;
+  }
+
+  cerrarModalEditarHistorial(): void {
+    this.mostrarModalEditarHistorial = false;
+    this.alertaEnEdicionHistorialId = null;
+    this.historialEdicion = {
+      motivo: '',
+      solucionado: ''
+    };
+  }
+
+  guardarEdicionHistorial(): void {
+    if (!this.esAdmin || this.alertaEnEdicionHistorialId === null) {
+      return;
+    }
+    const motivo = this.historialEdicion.motivo.trim();
+    const solucionado = this.historialEdicion.solucionado;
+    if (!motivo || !solucionado) {
+      this.mostrarMensajeAlerta('Completa motivo y resultado para guardar el historial.', 'warning');
+      return;
+    }
+    const seArreglo = solucionado === 'si';
+    this.alertas = this.alertas.map((alerta) =>
+      alerta.id === this.alertaEnEdicionHistorialId
+        ? {
+            ...alerta,
+            motivoResolucion: motivo,
+            solucionado: seArreglo,
+            fechaResolucion: alerta.fechaResolucion || new Date().toLocaleString()
+          }
+        : alerta
+    );
+    this.guardarAlertasLocal();
+    this.mostrarMensajeAlerta('Historial actualizado correctamente.', 'ok');
+    this.cerrarModalEditarHistorial();
+  }
+
+  eliminarAlertaHistorial(id: number): void {
+    if (!this.esAdmin) {
+      return;
+    }
+    const existe = this.alertas.some((alerta) => alerta.id === id && alerta.estado === 'Resuelta');
+    if (!existe) {
+      this.mostrarMensajeAlerta('No se encontro la alerta en historial.', 'warning');
+      return;
+    }
+    this.alertas = this.alertas.filter((alerta) => alerta.id !== id);
+    this.guardarAlertasLocal();
+    this.mostrarMensajeAlerta('Registro de historial eliminado.', 'ok');
+  }
+
   async exportarExcel(): Promise<void> {
     if (!this.esAdmin) {
       return;
     }
     const equiposAExportar = this.obtenerEquiposParaExportar();
     if (equiposAExportar.length === 0) {
-      this.mostrarMensajeAlerta(
-        'No hay equipos para exportar con esos filtros. Cambia Tipo o Ubicacion.',
+      this.mostrarMensajeImportacion(
+        'No hay equipos para exportar con esos filtros. Cambia Tipo, Ubicacion, Marca o Estado.',
         'warning'
       );
       return;
@@ -759,12 +939,16 @@ export class App implements OnInit {
       this.filtroExportacionMarca === 'Todas'
         ? 'todas-marcas'
         : this.filtroExportacionMarca.toLowerCase().replace(/\s+/g, '-');
+    const sufijoEstado =
+      this.filtroExportacionEstado === 'Todos'
+        ? 'todos-estados'
+        : this.filtroExportacionEstado.toLowerCase().replace(/\s+/g, '-');
 
     xlsx.writeFile(
       libro,
-      `inventario-${sufijoTipo}-${sufijoUbicacion}-${sufijoMarca}-${this.fechaArchivo()}.xlsx`
+      `inventario-${sufijoTipo}-${sufijoUbicacion}-${sufijoMarca}-${sufijoEstado}-${this.fechaArchivo()}.xlsx`
     );
-    this.mostrarMensajeAlerta(
+    this.mostrarMensajeImportacion(
       `Excel exportado (${equiposAExportar.length} equipos).`,
       'ok'
     );
@@ -784,6 +968,8 @@ export class App implements OnInit {
     this.filtroExportacionTipo = 'Todos';
     this.filtroExportacionUbicacion = 'Todas';
     this.filtroExportacionMarca = 'Todas';
+    this.filtroExportacionEstado = 'Todos';
+    this.filtroBusquedaEquipos = '';
   }
 
   async descargarPlantillaExcel(): Promise<void> {
@@ -855,8 +1041,8 @@ export class App implements OnInit {
     }
     const equiposAExportar = this.obtenerEquiposParaExportar();
     if (equiposAExportar.length === 0) {
-      this.mostrarMensajeAlerta(
-        'No hay equipos para exportar con esos filtros. Cambia Tipo o Ubicacion.',
+      this.mostrarMensajeImportacion(
+        'No hay equipos para exportar con esos filtros. Cambia Tipo, Ubicacion, Marca o Estado.',
         'warning'
       );
       return;
@@ -907,15 +1093,86 @@ export class App implements OnInit {
       this.filtroExportacionMarca === 'Todas'
         ? 'todas-marcas'
         : this.filtroExportacionMarca.toLowerCase().replace(/\s+/g, '-');
+    const sufijoEstado =
+      this.filtroExportacionEstado === 'Todos'
+        ? 'todos-estados'
+        : this.filtroExportacionEstado.toLowerCase().replace(/\s+/g, '-');
 
     doc.save(
-      `inventario-${sufijoTipo}-${sufijoUbicacion}-${sufijoMarca}-${this.fechaArchivo()}.pdf`
+      `inventario-${sufijoTipo}-${sufijoUbicacion}-${sufijoMarca}-${sufijoEstado}-${this.fechaArchivo()}.pdf`
     );
-    this.mostrarMensajeAlerta(
+    this.mostrarMensajeImportacion(
       `PDF exportado (${equiposAExportar.length} equipos).`,
       'ok'
     );
     this.cerrarModalExportacion();
+  }
+
+  async exportarHistorialExcel(): Promise<void> {
+    const historial = this.historialAlertasFiltrado;
+    if (historial.length === 0) {
+      this.mostrarMensajeAlerta('No hay historial para exportar con esos filtros.', 'warning');
+      return;
+    }
+    const xlsx = await import('xlsx');
+    const datos = historial.map((alerta) => ({
+      Equipo: `${alerta.equipo?.tipo ?? 'N/A'} - ${alerta.equipo?.marca ?? ''} ${alerta.equipo?.modelo ?? ''}`.trim(),
+      Serial: alerta.equipo?.serial ?? 'N/A',
+      Ubicacion: alerta.equipo?.ubicacion ?? 'N/A',
+      Descripcion: alerta.descripcion,
+      ReportadoPor: alerta.reportadoPor,
+      ResueltaPor: alerta.resueltaPor ?? 'N/A',
+      FechaReporte: alerta.fecha,
+      FechaResolucion: alerta.fechaResolucion ?? 'N/A',
+      Resultado: alerta.solucionado ? 'Corregida' : 'No corregida',
+      MotivoSolucion: alerta.motivoResolucion ?? 'N/A'
+    }));
+    const hoja = xlsx.utils.json_to_sheet(datos);
+    const libro = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(libro, hoja, 'Historial');
+    xlsx.writeFile(libro, `historial-alertas-${this.fechaArchivo()}.xlsx`);
+    this.mostrarMensajeAlerta(`Historial exportado en Excel (${historial.length} registros).`, 'ok');
+  }
+
+  async exportarHistorialPdf(): Promise<void> {
+    const historial = this.historialAlertasFiltrado;
+    if (historial.length === 0) {
+      this.mostrarMensajeAlerta('No hay historial para exportar con esos filtros.', 'warning');
+      return;
+    }
+    const jspdfModule = await import('jspdf');
+    const autoTableModule = await import('jspdf-autotable');
+    const doc = new jspdfModule.jsPDF({ orientation: 'landscape' });
+    doc.setFontSize(14);
+    doc.text('Historial de Alertas', 14, 16);
+    doc.setFontSize(10);
+    doc.text(`Total de registros: ${historial.length}`, 14, 22);
+    autoTableModule.default(doc, {
+      startY: 28,
+      head: [[
+        'Equipo',
+        'Ubicacion',
+        'Descripcion',
+        'Reportado por',
+        'Resuelta por',
+        'Fecha reporte',
+        'Fecha resolucion',
+        'Resultado'
+      ]],
+      body: historial.map((alerta) => [
+        `${alerta.equipo?.tipo ?? 'N/A'} ${alerta.equipo?.marca ?? ''} ${alerta.equipo?.modelo ?? ''}`.trim(),
+        alerta.equipo?.ubicacion ?? 'N/A',
+        alerta.descripcion,
+        alerta.reportadoPor,
+        alerta.resueltaPor ?? 'N/A',
+        alerta.fecha,
+        alerta.fechaResolucion ?? 'N/A',
+        alerta.solucionado ? 'Corregida' : 'No corregida'
+      ]),
+      styles: { fontSize: 8 }
+    });
+    doc.save(`historial-alertas-${this.fechaArchivo()}.pdf`);
+    this.mostrarMensajeAlerta(`Historial exportado en PDF (${historial.length} registros).`, 'ok');
   }
 
   async importarExcel(event: Event): Promise<void> {
@@ -926,6 +1183,7 @@ export class App implements OnInit {
       return;
     }
     this.limpiarMensajeImportacion();
+    this.vistaActual = 'equipos';
     const input = event.target as HTMLInputElement;
     const archivo = input.files?.[0];
 
@@ -952,12 +1210,16 @@ export class App implements OnInit {
     this.importacionExitosos = 0;
     this.importacionFallidos = 0;
     this.detallesImportacionFallida = [];
+    this.cancelacionImportacionSolicitada = false;
     this.cdr.detectChanges();
 
     const serialesOcupados = new Set(this.inventario.map((equipo) => equipo.serial));
     const nuevosGuardados: RegistroInventario[] = [];
 
     for (let i = 0; i < filas.length; i += 1) {
+      if (this.cancelacionImportacionSolicitada) {
+        break;
+      }
       const filaNumero = i + 2;
       const registro = this.mapearFilaARegistro(filas[i]);
       if (!registro) {
@@ -988,14 +1250,19 @@ export class App implements OnInit {
       this.cdr.detectChanges();
     }
 
-    if (this.importacionExitosos === 0) {
+    if (this.cancelacionImportacionSolicitada) {
+      this.mostrarMensajeImportacion(
+        `Importacion cancelada: ${this.importacionExitosos} cargados y ${this.importacionFallidos} omitidos.`,
+        'warning'
+      );
+    } else if (this.importacionExitosos === 0) {
       this.mostrarMensajeImportacion(
         'No se importaron equipos. Verifica columnas (Tipo, Marca, Modelo, Serial, Ubicacion, Estado) y valores permitidos.',
         'warning'
       );
     } else {
       await this.cargarInventarioDesdeApi();
-      this.vistaActual = 'inventario';
+      this.vistaActual = 'equipos';
       this.mostrarMensajeImportacion(
         `Importacion completada: ${this.importacionExitosos} cargados y ${this.importacionFallidos} omitidos.`,
         this.importacionFallidos > 0 ? 'warning' : 'ok'
@@ -1003,8 +1270,16 @@ export class App implements OnInit {
     }
 
     this.importacionEnProgreso = false;
+    this.cancelacionImportacionSolicitada = false;
     input.value = '';
     this.cdr.detectChanges();
+  }
+
+  cancelarImportacion(): void {
+    if (!this.importacionEnProgreso) {
+      return;
+    }
+    this.cancelacionImportacionSolicitada = true;
   }
 
   private mapearFilaARegistro(fila: Record<string, unknown>): DatosEquipoBase | null {
@@ -1115,6 +1390,7 @@ export class App implements OnInit {
   }
 
   private obtenerEquiposParaExportar(): RegistroInventario[] {
+    const termino = this.filtroBusquedaEquipos.trim().toLowerCase();
     return this.inventario.filter((equipo) => {
       const coincideTipo =
         this.filtroExportacionTipo === 'Todos' || equipo.tipo === this.filtroExportacionTipo;
@@ -1123,7 +1399,20 @@ export class App implements OnInit {
         equipo.ubicacion === this.filtroExportacionUbicacion;
       const coincideMarca =
         this.filtroExportacionMarca === 'Todas' || equipo.marca === this.filtroExportacionMarca;
-      return coincideTipo && coincideUbicacion && coincideMarca;
+      const coincideEstado =
+        this.filtroExportacionEstado === 'Todos' || equipo.estado === this.filtroExportacionEstado;
+      const textoBase = [
+        equipo.tipo,
+        equipo.marca,
+        equipo.modelo,
+        equipo.serial,
+        equipo.ubicacion,
+        equipo.estado
+      ]
+        .join(' ')
+        .toLowerCase();
+      const coincideBusqueda = !termino || textoBase.includes(termino);
+      return coincideTipo && coincideUbicacion && coincideMarca && coincideEstado && coincideBusqueda;
     });
   }
 
@@ -1131,18 +1420,58 @@ export class App implements OnInit {
     mensaje: string,
     tipo: 'ok' | 'warning'
   ): void {
+    if (this.importacionTimeoutId !== null) {
+      clearTimeout(this.importacionTimeoutId);
+    }
     this.mensajeImportacion = mensaje;
     this.tipoMensajeImportacion = tipo;
+    this.cdr.detectChanges();
+    this.importacionTimeoutId = setTimeout(() => {
+      this.limpiarMensajeImportacion();
+      this.importacionTimeoutId = null;
+      this.cdr.detectChanges();
+    }, tipo === 'warning' ? 5000 : 3000);
   }
 
   private limpiarMensajeImportacion(): void {
+    if (this.importacionTimeoutId !== null) {
+      clearTimeout(this.importacionTimeoutId);
+      this.importacionTimeoutId = null;
+    }
     this.mensajeImportacion = '';
     this.tipoMensajeImportacion = '';
   }
 
   private mostrarMensajeAlerta(mensaje: string, tipo: 'ok' | 'warning'): void {
+    if (this.alertaTimeoutId !== null) {
+      clearTimeout(this.alertaTimeoutId);
+    }
     this.mensajeAlerta = mensaje;
     this.tipoMensajeAlerta = tipo;
+    this.cdr.detectChanges();
+    this.alertaTimeoutId = setTimeout(() => {
+      this.limpiarMensajeAlerta();
+      this.alertaTimeoutId = null;
+    }, tipo === 'warning' ? 5000 : 3000);
+  }
+
+  private mostrarMensajeConexionApi(
+    mensaje: string,
+    tipo: 'ok' | 'warning',
+    duracionMs = 3000
+  ): void {
+    if (this.conexionApiTimeoutId !== null) {
+      clearTimeout(this.conexionApiTimeoutId);
+    }
+    this.mensajeConexionApi = mensaje;
+    this.tipoMensajeConexionApi = tipo;
+    this.cdr.detectChanges();
+    this.conexionApiTimeoutId = setTimeout(() => {
+      this.mensajeConexionApi = '';
+      this.tipoMensajeConexionApi = '';
+      this.conexionApiTimeoutId = null;
+      this.cdr.detectChanges();
+    }, duracionMs);
   }
 
   private mostrarMensajeUsuarios(mensaje: string, tipo: 'ok' | 'warning'): void {
@@ -1151,13 +1480,31 @@ export class App implements OnInit {
   }
 
   private limpiarMensajeAlerta(): void {
+    if (this.alertaTimeoutId !== null) {
+      clearTimeout(this.alertaTimeoutId);
+      this.alertaTimeoutId = null;
+    }
     this.mensajeAlerta = '';
     this.tipoMensajeAlerta = '';
   }
 
+  private async verificarConexionApi(): Promise<boolean> {
+    try {
+      const respuesta = await fetch(`${this.apiBaseUrl}/equipos.php`, {
+        method: 'GET',
+        cache: 'no-store'
+      });
+      return respuesta.ok;
+    } catch {
+      return false;
+    }
+  }
+
   private async cargarInventarioDesdeApi(): Promise<void> {
     try {
-      const respuesta = await fetch(`${this.apiBaseUrl}/equipos.php`);
+      const respuesta = await fetch(`${this.apiBaseUrl}/equipos.php?ts=${Date.now()}`, {
+        cache: 'no-store'
+      });
       if (!respuesta.ok) {
         throw new Error('No se pudo consultar la API.');
       }
@@ -1268,7 +1615,7 @@ export class App implements OnInit {
         if (this.equipoIdEnSesion) {
           this.nuevaAlerta.equipoId = this.equipoIdEnSesion;
         }
-        this.vistaActual = this.esAdmin ? 'inventario' : 'alertas';
+        this.vistaActual = this.esAdmin || this.esSoporte ? 'equipos' : 'alertas';
       }
     } catch {
       localStorage.removeItem(this.sessionStorageKey);

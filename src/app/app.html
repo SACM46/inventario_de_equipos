@@ -1,12 +1,18 @@
 <main class="layout">
   <section class="encabezado">
-    <h1>Inventario de Equipos</h1>
-    <p>Control de impresoras, escaneres y computadores (todo en uno, laptop y de mesa).</p>
+    <h1><i class="bi bi-hdd-stack" aria-hidden="true"></i> Inventario de Equipos</h1>
+    <p>Control de impresoras y computadores.</p>
   </section>
+  @if (mensajeConexionApi) {
+    <div class="toast-conexion" [class.warning]="tipoMensajeConexionApi === 'warning'" role="status" aria-live="polite">
+      <i class="bi" [class.bi-check-circle-fill]="tipoMensajeConexionApi !== 'warning'" [class.bi-exclamation-triangle-fill]="tipoMensajeConexionApi === 'warning'" aria-hidden="true"></i>
+      <span>{{ mensajeConexionApi }}</span>
+    </div>
+  }
 
   @if (!sesionActiva) {
     <section class="tarjeta login">
-      <h2>Acceso al sistema</h2>
+      <h2><i class="bi bi-shield-lock" aria-hidden="true"></i> Acceso</h2>
       <form class="formulario-login" (ngSubmit)="iniciarSesion()">
         <label>
           Usuario
@@ -16,16 +22,16 @@
           Contrasena
           <input type="password" name="contrasena" [(ngModel)]="credenciales.contrasena" />
         </label>
-        <button type="submit">Ingresar</button>
+        <button type="submit"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Ingresar</button>
       </form>
       <p class="nota-login">
         Admin: <strong>admin / admin123</strong>, <strong>soporte / soporte123</strong><br />
-        Usuario general: <strong>usuario1 / usuario123</strong><br />
-        Cuenta de equipo: usuario = <strong>Serial</strong> del equipo (columna Serial), contrasena =
-        <strong>Equipo2026</strong> (universal).
+        Usuario: <strong>usuario1 / usuario123</strong><br />
+        Equipo: <strong>Serial / Equipo2026</strong>
       </p>
       @if (mensajeAlerta) {
         <p class="mensaje-importacion" [class.warning]="tipoMensajeAlerta === 'warning'">
+          <i class="bi" [class.bi-check-circle-fill]="tipoMensajeAlerta !== 'warning'" [class.bi-exclamation-triangle-fill]="tipoMensajeAlerta === 'warning'" aria-hidden="true"></i>
           {{ mensajeAlerta }}
         </p>
       }
@@ -34,9 +40,15 @@
     <section class="tarjeta barra-superior">
       <div class="tabs">
         @if (puedeVerInventario) {
-          <button type="button" [class.tab-activa]="vistaActual === 'inventario'" (click)="vistaActual = 'inventario'">
+          <button type="button" [class.tab-activa]="vistaActual === 'equipos'" (click)="vistaActual = 'equipos'">
             <i class="bi bi-box-seam" aria-hidden="true"></i>
-            Inventario
+            Equipos
+          </button>
+        }
+        @if (puedeGestionarUsuarios) {
+          <button type="button" [class.tab-activa]="vistaActual === 'usuarios'" (click)="vistaActual = 'usuarios'">
+            <i class="bi bi-people" aria-hidden="true"></i>
+            Usuarios
           </button>
         }
         <button type="button" [class.tab-activa]="vistaActual === 'alertas'" (click)="vistaActual = 'alertas'">
@@ -46,14 +58,16 @@
       </div>
       <div class="usuario">
         <span>Usuario: {{ usuarioActual }} ({{ etiquetaRolActual }})</span>
-        <button type="button" class="btn-cerrar" (click)="cerrarSesion()">Cerrar sesion</button>
+        <button type="button" class="btn-cerrar" (click)="cerrarSesion()">
+          <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Cerrar sesion
+        </button>
       </div>
     </section>
   }
 
-  @if (sesionActiva && esAdmin && vistaActual === 'inventario') {
+  @if (sesionActiva && esAdmin && vistaActual === 'equipos') {
   <section class="tarjeta">
-    <h2>Registrar equipo</h2>
+    <h2><i class="bi bi-pc-display" aria-hidden="true"></i> Nuevo equipo</h2>
     <form class="formulario" (ngSubmit)="agregarEquipo()">
       <label>
         Tipo
@@ -93,14 +107,14 @@
         </select>
       </label>
 
-      <button type="submit">Agregar al inventario</button>
+      <button type="submit"><i class="bi bi-plus-circle" aria-hidden="true"></i> Agregar</button>
     </form>
   </section>
   }
 
-  @if (sesionActiva && esAdmin && vistaActual === 'inventario') {
+  @if (sesionActiva && esAdmin && vistaActual === 'usuarios') {
   <section class="tarjeta">
-    <h2>Gestion de usuarios</h2>
+    <h2><i class="bi bi-people" aria-hidden="true"></i> Usuarios</h2>
     <form class="formulario" (ngSubmit)="crearUsuario()">
       <label>
         Nombre
@@ -121,10 +135,11 @@
           <option value="soporte">Soporte</option>
         </select>
       </label>
-      <button type="submit">Crear usuario</button>
+      <button type="submit"><i class="bi bi-person-plus" aria-hidden="true"></i> Crear usuario</button>
     </form>
     @if (mensajeUsuarios) {
       <p class="mensaje-importacion" [class.warning]="tipoMensajeUsuarios === 'warning'">
+        <i class="bi" [class.bi-check-circle-fill]="tipoMensajeUsuarios !== 'warning'" [class.bi-exclamation-triangle-fill]="tipoMensajeUsuarios === 'warning'" aria-hidden="true"></i>
         {{ mensajeUsuarios }}
       </p>
     }
@@ -178,75 +193,104 @@
   </section>
   }
 
-  @if (sesionActiva && puedeVerInventario && vistaActual === 'inventario') {
+  @if (sesionActiva && puedeVerInventario && vistaActual === 'equipos') {
   <section class="tarjeta">
     <div class="filtros">
-      <h2>Listado de equipos</h2>
-      <div class="filtros-derecha">
-        <div class="acciones-exportar">
-          <button type="button" class="btn-plantilla-excel" (click)="descargarPlantillaExcel()">
-            Descargar plantilla Excel
-          </button>
-          <label class="btn-importar" for="archivoExcel" [class.disabled]="importacionEnProgreso">
-            {{ importacionEnProgreso ? 'Importando...' : 'Importar Excel' }}
-          </label>
+      <h2><i class="bi bi-list-ul" aria-hidden="true"></i> Equipos</h2>
+      @if (esAdmin) {
+      <div class="acciones-exportar">
+        <label class="btn-importar" [class.disabled]="importacionEnProgreso">
+          <i class="bi bi-upload" aria-hidden="true"></i>
+          {{ importacionEnProgreso ? 'Importando...' : 'Importar' }}
           <input
-            id="archivoExcel"
             class="input-archivo"
             type="file"
             accept=".xlsx,.xls"
+            [disabled]="importacionEnProgreso"
             (change)="importarExcel($event)"
           />
-          <button
-            type="button"
-            class="btn-exportar-excel"
-            (click)="abrirModalExportacion()"
-          >
-            Exportar a Excel o PDF
-          </button>
+        </label>
+        <button type="button" class="btn-plantilla-excel" (click)="descargarPlantillaExcel()">
+          <i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> Plantilla
+        </button>
+        <button type="button" class="btn-exportar-excel" (click)="exportarExcel()">
+          <i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Excel
+        </button>
+        <button type="button" class="btn-exportar-pdf" (click)="exportarPdfFiltrado()">
+          <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> PDF
+        </button>
+      </div>
+      }
+      <div class="filtros-derecha">
+        @if (esAdmin) {
+        <div class="filtro-grupo">
+          <label for="filtroExportTipo">Tipo</label>
+          <select id="filtroExportTipo" name="filtroExportacionTipoTop" [(ngModel)]="filtroExportacionTipo">
+            <option value="Todos">Todos</option>
+            @for (tipo of tiposEquipo; track tipo) {
+              <option [value]="tipo">{{ tipo }}</option>
+            }
+          </select>
         </div>
         <div class="filtro-grupo">
-        <label for="filtroTipo">Filtrar por tipo</label>
-        <select id="filtroTipo" name="filtroTipo" [(ngModel)]="filtroTipo">
-          <option value="Todos">Todos</option>
-          @for (tipo of tiposEquipo; track tipo) {
-            <option [value]="tipo">{{ tipo }}</option>
-          }
-        </select>
+          <label for="filtroExportUbicacion">Ubicacion</label>
+          <select
+            id="filtroExportUbicacion"
+            name="filtroExportacionUbicacionTop"
+            [(ngModel)]="filtroExportacionUbicacion"
+          >
+            <option value="Todas">Todas</option>
+            @for (ubicacion of ubicacionesDisponibles; track ubicacion) {
+              <option [value]="ubicacion">{{ ubicacion }}</option>
+            }
+          </select>
         </div>
+        <div class="filtro-grupo">
+          <label for="filtroExportMarca">Marca</label>
+          <select id="filtroExportMarca" name="filtroExportacionMarcaTop" [(ngModel)]="filtroExportacionMarca">
+            <option value="Todas">Todas</option>
+            @for (marca of marcasDisponibles; track marca) {
+              <option [value]="marca">{{ marca }}</option>
+            }
+          </select>
+        </div>
+        <div class="filtro-grupo">
+          <label for="filtroExportEstado">Estado</label>
+          <select
+            id="filtroExportEstado"
+            name="filtroExportacionEstadoTop"
+            [(ngModel)]="filtroExportacionEstado"
+          >
+            <option value="Todos">Todos</option>
+            <option value="Activo">Activo</option>
+            <option value="En reparacion">En reparacion</option>
+            <option value="Baja">Baja</option>
+          </select>
+        </div>
+        <div class="filtro-grupo filtro-grupo--busqueda-equipos">
+          <label for="filtroBusquedaEquipos">Buscar</label>
+          <input
+            id="filtroBusquedaEquipos"
+            type="text"
+            name="filtroBusquedaEquipos"
+            placeholder="Tipo, marca, modelo, serial..."
+            [(ngModel)]="filtroBusquedaEquipos"
+          />
+        </div>
+        }
       </div>
     </div>
 
-    <p class="total">Total registrados: {{ totalEquipos }}</p>
+    <p class="total">Total: {{ totalEquipos }}</p>
     @if (mensajeImportacion) {
       <p class="mensaje-importacion" [class.warning]="tipoMensajeImportacion === 'warning'">
+        <i class="bi" [class.bi-check-circle-fill]="tipoMensajeImportacion !== 'warning'" [class.bi-exclamation-triangle-fill]="tipoMensajeImportacion === 'warning'" aria-hidden="true"></i>
         {{ mensajeImportacion }}
       </p>
     }
-    @if (importacionTotal > 0) {
-      <section class="progreso-importacion">
-        <div class="progreso-encabezado">
-          <strong>{{ importacionEnProgreso ? 'Importando equipos...' : 'Resultado de importacion' }}</strong>
-          <span>{{ progresoImportacionPorcentaje }}%</span>
-        </div>
-        <div class="barra-progreso">
-          <div class="barra-progreso__avance" [style.width.%]="progresoImportacionPorcentaje"></div>
-        </div>
-        <p class="progreso-resumen">
-          Procesados: {{ importacionProcesados }}/{{ importacionTotal }} | Cargados: {{ importacionExitosos }} |
-          Omitidos: {{ importacionFallidos }}
-        </p>
-        @if (detallesImportacionFallida.length > 0) {
-          <ul class="detalle-fallidos">
-            @for (detalle of detallesImportacionFallida; track detalle) {
-              <li>{{ detalle }}</li>
-            }
-          </ul>
-        }
-      </section>
-    }
     @if (mensajePortapapeles) {
       <p class="mensaje-importacion" [class.warning]="tipoMensajePortapapeles === 'warning'">
+        <i class="bi" [class.bi-check-circle-fill]="tipoMensajePortapapeles !== 'warning'" [class.bi-exclamation-triangle-fill]="tipoMensajePortapapeles === 'warning'" aria-hidden="true"></i>
         {{ mensajePortapapeles }}
       </p>
     }
@@ -329,9 +373,13 @@
 
   @if (sesionActiva && vistaActual === 'alertas') {
     <section class="tarjeta">
-      <h2>{{ puedeGestionarAlertas ? 'Gestion de alertas' : 'Registrar problema de equipo' }}</h2>
+      <h2>
+        <i class="bi bi-tools" aria-hidden="true"></i>
+        {{ puedeGestionarAlertas ? 'Alertas' : 'Reportar falla' }}
+      </h2>
       @if (mensajeAlerta) {
         <p class="mensaje-importacion" [class.warning]="tipoMensajeAlerta === 'warning'">
+          <i class="bi" [class.bi-check-circle-fill]="tipoMensajeAlerta !== 'warning'" [class.bi-exclamation-triangle-fill]="tipoMensajeAlerta === 'warning'" aria-hidden="true"></i>
           {{ mensajeAlerta }}
         </p>
       }
@@ -350,10 +398,10 @@
           </select>
         </label>
         <label>
-          Descripcion de la falla
+          Descripcion
           <input type="text" name="descripcionAlertaUsuario" [(ngModel)]="nuevaAlerta.descripcion" />
         </label>
-        <button type="submit">Registrar alerta</button>
+        <button type="submit"><i class="bi bi-bell-fill" aria-hidden="true"></i> Reportar</button>
       </form>
       <div class="tabla-wrap">
         <table>
@@ -401,15 +449,121 @@
           </tbody>
         </table>
       </div>
+
+      <h3><i class="bi bi-clock-history" aria-hidden="true"></i> Historial</h3>
+      <div class="historial-controles">
+        <div class="filtro-grupo">
+          <label for="historialEquipo">Equipo</label>
+          <select id="historialEquipo" name="historialEquipo" [(ngModel)]="historialFiltroEquipoId">
+            <option [ngValue]="'Todos'">Todos</option>
+            @for (equipo of historialEquiposDisponibles; track equipo.id) {
+              <option [ngValue]="equipo.id">{{ equipo.etiqueta }}</option>
+            }
+          </select>
+        </div>
+        <div class="filtro-grupo">
+          <label for="historialResultado">Resultado</label>
+          <select id="historialResultado" name="historialResultado" [(ngModel)]="historialFiltroResultado">
+            <option value="Todos">Todos</option>
+            <option value="Corregida">Corregida</option>
+            <option value="No corregida">No corregida</option>
+          </select>
+        </div>
+        <div class="filtro-grupo filtro-grupo--busqueda">
+          <label for="historialBusqueda">Buscar</label>
+          <input
+            id="historialBusqueda"
+            type="text"
+            name="historialBusqueda"
+            placeholder="Equipo, descripcion, usuario..."
+            [(ngModel)]="historialBusqueda"
+          />
+        </div>
+        <div class="acciones-exportar acciones-exportar--historial">
+          <button type="button" class="btn-exportar-excel" (click)="exportarHistorialExcel()">
+            <i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Excel
+          </button>
+          <button type="button" class="btn-exportar-pdf" (click)="exportarHistorialPdf()">
+            <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> PDF
+          </button>
+        </div>
+      </div>
+      <div class="tabla-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Equipo</th>
+              <th>Ubicacion</th>
+              <th>Descripcion</th>
+              <th>Reportado por</th>
+              <th>Resuelta por</th>
+              <th>Fecha reporte</th>
+              <th>Fecha resolucion</th>
+              <th>Resultado</th>
+              <th>Motivo / solucion</th>
+              @if (esAdmin) {
+                <th>Accion</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (alerta of historialAlertasFiltrado; track alerta.id) {
+              <tr>
+                <td>
+                  {{ alerta.equipo?.tipo }} - {{ alerta.equipo?.marca }} {{ alerta.equipo?.modelo }}
+                </td>
+                <td>{{ alerta.equipo?.ubicacion || 'N/A' }}</td>
+                <td>{{ alerta.descripcion }}</td>
+                <td>{{ alerta.reportadoPor }}</td>
+                <td>{{ alerta.resueltaPor || 'N/A' }}</td>
+                <td>{{ alerta.fecha }}</td>
+                <td>{{ alerta.fechaResolucion || 'N/A' }}</td>
+                <td>{{ alerta.solucionado ? 'Corregida' : 'No corregida' }}</td>
+                <td>{{ alerta.motivoResolucion || 'N/A' }}</td>
+                @if (esAdmin) {
+                  <td>
+                    <div class="acciones-fila">
+                      <button
+                        type="button"
+                        class="btn-icon btn-editar"
+                        (click)="abrirModalEditarHistorial(alerta.id)"
+                        title="Editar historial"
+                        aria-label="Editar historial"
+                      >
+                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-icon btn-eliminar"
+                        (click)="eliminarAlertaHistorial(alerta.id)"
+                        title="Eliminar historial"
+                        aria-label="Eliminar historial"
+                      >
+                        <i class="bi bi-trash3" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  </td>
+                }
+              </tr>
+            } @empty {
+              <tr>
+                <td [attr.colspan]="esAdmin ? 10 : 9" class="sin-datos">No hay historial de alertas resueltas.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     </section>
   }
 
-  @if (sesionActiva && esAdmin && vistaActual === 'inventario' && mostrarOpcionesExportacion) {
+  @if (sesionActiva && esAdmin && vistaActual === 'equipos' && mostrarOpcionesExportacion) {
     <div class="modal-exportacion-backdrop" (click)="cerrarModalExportacion()">
       <section class="modal-exportacion" (click)="$event.stopPropagation()">
         <header class="modal-exportacion__encabezado">
-          <h3>Exportar Excel con filtros</h3>
-          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalExportacion()">X</button>
+          <h3>Exportar</h3>
+          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalExportacion()">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
         </header>
 
         <div class="modal-exportacion__controles">
@@ -440,29 +594,49 @@
               }
             </select>
           </label>
+          <label>
+            Estado
+            <select name="filtroExportacionEstado" [(ngModel)]="filtroExportacionEstado">
+              <option value="Todos">Todos</option>
+              <option value="Activo">Activo</option>
+              <option value="En reparacion">En reparacion</option>
+              <option value="Baja">Baja</option>
+            </select>
+          </label>
+          <label>
+            Buscar
+            <input
+              type="text"
+              name="filtroBusquedaEquiposModal"
+              placeholder="Tipo, marca, modelo, serial..."
+              [(ngModel)]="filtroBusquedaEquipos"
+            />
+          </label>
         </div>
 
         <footer class="modal-exportacion__acciones">
-          <button type="button" class="btn-limpiar-filtros" (click)="limpiarFiltrosExportacion()">
-            Limpiar filtros
+          <button type="button" class="btn-plantilla-excel" (click)="descargarPlantillaExcel()">
+            <i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> Plantilla Excel
           </button>
           <button type="button" class="btn-exportar-excel" (click)="exportarExcel()">
-            Descargar Excel filtrado
+            <i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Excel
           </button>
           <button type="button" class="btn-exportar-pdf" (click)="exportarPdfFiltrado()">
-            Descargar PDF filtrado
+            <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> PDF
           </button>
         </footer>
       </section>
     </div>
   }
 
-  @if (sesionActiva && esAdmin && vistaActual === 'inventario' && mostrarModalEdicionUsuario) {
+  @if (sesionActiva && esAdmin && vistaActual === 'usuarios' && mostrarModalEdicionUsuario) {
     <div class="modal-exportacion-backdrop" (click)="cerrarModalEditarUsuario()">
       <section class="modal-exportacion" (click)="$event.stopPropagation()">
         <header class="modal-exportacion__encabezado">
-          <h3>Modificar usuario</h3>
-          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalEditarUsuario()">X</button>
+          <h3>Editar usuario</h3>
+          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalEditarUsuario()">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
         </header>
 
         <form class="modal-exportacion__controles" (ngSubmit)="guardarEdicionUsuario()">
@@ -500,10 +674,10 @@
 
           <footer class="modal-exportacion__acciones">
             <button type="button" class="btn-limpiar-filtros" (click)="cerrarModalEditarUsuario()">
-              Cancelar
+              <i class="bi bi-x-circle" aria-hidden="true"></i> Cancelar
             </button>
             <button type="submit" class="btn-exportar-excel">
-              Guardar cambios
+              <i class="bi bi-save" aria-hidden="true"></i> Guardar cambios
             </button>
           </footer>
         </form>
@@ -511,12 +685,14 @@
     </div>
   }
 
-  @if (sesionActiva && esAdmin && vistaActual === 'inventario' && mostrarModalEdicionEquipo) {
+  @if (sesionActiva && esAdmin && vistaActual === 'equipos' && mostrarModalEdicionEquipo) {
     <div class="modal-exportacion-backdrop" (click)="cerrarModalEditarEquipo()">
       <section class="modal-exportacion" (click)="$event.stopPropagation()">
         <header class="modal-exportacion__encabezado">
           <h3>Editar equipo</h3>
-          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalEditarEquipo()">X</button>
+          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalEditarEquipo()">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
         </header>
 
         <form class="modal-exportacion__controles" (ngSubmit)="guardarEdicionEquipo()">
@@ -555,10 +731,10 @@
 
           <footer class="modal-exportacion__acciones">
             <button type="button" class="btn-limpiar-filtros" (click)="cerrarModalEditarEquipo()">
-              Cancelar
+              <i class="bi bi-x-circle" aria-hidden="true"></i> Cancelar
             </button>
             <button type="submit" class="btn-exportar-excel">
-              Guardar cambios
+              <i class="bi bi-save" aria-hidden="true"></i> Guardar cambios
             </button>
           </footer>
         </form>
@@ -570,13 +746,15 @@
     <div class="modal-exportacion-backdrop" (click)="cerrarModalResolverAlerta()">
       <section class="modal-exportacion" (click)="$event.stopPropagation()">
         <header class="modal-exportacion__encabezado">
-          <h3>Resolver alerta</h3>
-          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalResolverAlerta()">X</button>
+          <h3>Resolver</h3>
+          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalResolverAlerta()">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
         </header>
 
         <form class="modal-exportacion__controles" (ngSubmit)="resolverAlerta()">
           <label>
-            Motivo de la falla / solucion aplicada
+            Motivo / solucion
             <input
               type="text"
               name="motivoResolucionAlerta"
@@ -585,7 +763,7 @@
             />
           </label>
           <label>
-            Se arreglo la falla?
+            Se arreglo?
             <select name="solucionadoAlerta" [(ngModel)]="resolucionAlerta.solucionado">
               <option value="">Seleccionar...</option>
               <option value="si">Si</option>
@@ -595,13 +773,84 @@
 
           <footer class="modal-exportacion__acciones">
             <button type="button" class="btn-limpiar-filtros" (click)="cerrarModalResolverAlerta()">
-              Cancelar
+              <i class="bi bi-x-circle" aria-hidden="true"></i> Cancelar
             </button>
             <button type="submit" class="btn-exportar-excel">
-              Confirmar resolucion
+              <i class="bi bi-check2-circle" aria-hidden="true"></i> Confirmar
             </button>
           </footer>
         </form>
+      </section>
+    </div>
+  }
+
+  @if (sesionActiva && esAdmin && vistaActual === 'alertas' && mostrarModalEditarHistorial) {
+    <div class="modal-exportacion-backdrop" (click)="cerrarModalEditarHistorial()">
+      <section class="modal-exportacion" (click)="$event.stopPropagation()">
+        <header class="modal-exportacion__encabezado">
+          <h3>Editar historial</h3>
+          <button type="button" class="btn-cerrar-modal" (click)="cerrarModalEditarHistorial()">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
+        </header>
+
+        <form class="modal-exportacion__controles" (ngSubmit)="guardarEdicionHistorial()">
+          <label>
+            Motivo / solucion
+            <input
+              type="text"
+              name="editarMotivoHistorial"
+              [(ngModel)]="historialEdicion.motivo"
+              placeholder="Describe que se encontro y que se hizo"
+            />
+          </label>
+          <label>
+            Resultado
+            <select name="editarResultadoHistorial" [(ngModel)]="historialEdicion.solucionado">
+              <option value="">Seleccionar...</option>
+              <option value="si">Corregida</option>
+              <option value="no">No corregida</option>
+            </select>
+          </label>
+
+          <footer class="modal-exportacion__acciones">
+            <button type="button" class="btn-limpiar-filtros" (click)="cerrarModalEditarHistorial()">
+              <i class="bi bi-x-circle" aria-hidden="true"></i> Cancelar
+            </button>
+            <button type="submit" class="btn-exportar-excel">
+              <i class="bi bi-save" aria-hidden="true"></i> Guardar cambios
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  }
+
+  @if (sesionActiva && esAdmin && vistaActual === 'equipos' && importacionEnProgreso) {
+    <div class="modal-importacion-backdrop">
+      <section class="modal-importacion" role="status" aria-live="polite" aria-busy="true">
+        <header class="modal-importacion__encabezado">
+          <h3><i class="bi bi-upload" aria-hidden="true"></i> Importando equipos</h3>
+          <span>{{ progresoImportacionPorcentaje }}%</span>
+        </header>
+        <div class="barra-progreso">
+          <div class="barra-progreso__avance" [style.width.%]="progresoImportacionPorcentaje"></div>
+        </div>
+        <p class="progreso-resumen">
+          Proc: {{ importacionProcesados }}/{{ importacionTotal }} | OK: {{ importacionExitosos }} |
+          Err: {{ importacionFallidos }}
+        </p>
+        <footer class="modal-importacion__acciones">
+          <button
+            type="button"
+            class="btn-limpiar-filtros"
+            [disabled]="cancelacionImportacionSolicitada"
+            (click)="cancelarImportacion()"
+          >
+            <i class="bi bi-x-circle" aria-hidden="true"></i>
+            {{ cancelacionImportacionSolicitada ? 'Cancelando...' : 'Cancelar importacion' }}
+          </button>
+        </footer>
       </section>
     </div>
   }
